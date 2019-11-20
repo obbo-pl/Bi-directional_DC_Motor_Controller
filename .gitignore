@@ -60,3 +60,11 @@ _saved_*
 
 # Netlists
 *.net
+
+# Atmel Studio 6.2 User-specific files
+*.atsuo
+
+# Atmel Studio 6.2 Build results
+[Dd]ebug/
+
+
