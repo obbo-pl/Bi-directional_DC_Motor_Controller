@@ -61,6 +61,9 @@ _saved_*
 # Netlists
 *.net
 
+# cache
+fp-info-cache
+
 # Atmel Studio 6.2 User-specific files
 *.atsuo
 
