@@ -992,21 +992,21 @@ Wire Wire Line
 Wire Wire Line
 	5400 6350 5500 6350
 Wire Wire Line
-	8600 6350 8600 6750
+	8600 6450 8600 6750
 Wire Wire Line
-	12950 6350 12950 6750
+	12950 6450 12950 6750
 Wire Wire Line
-	12000 6350 12000 6750
+	12000 6450 12000 6750
 Wire Wire Line
-	9550 6350 9550 6750
+	9550 6450 9550 6750
 Wire Wire Line
-	8600 7550 8600 8150
+	8600 7450 8600 8150
 Wire Wire Line
-	9550 7550 9550 8150
+	9550 7450 9550 8150
 Wire Wire Line
-	12000 7550 12000 8150
+	12000 7450 12000 8150
 Wire Wire Line
-	12950 7550 12950 8150
+	12950 7450 12950 8150
 Wire Wire Line
 	10100 3250 10100 3400
 Wire Wire Line
@@ -1125,7 +1125,7 @@ F 1 "220" H 7670 6505 50  0000 L CNN
 F 2 "obbo_footprints:R_0805K" V 7530 6550 50  0001 C CNN
 F 3 "~" H 7600 6550 50  0001 C CNN
 	1    7600 6550
-	1    0    0    -1  
+	-1   0    0    1   
 $EndComp
 Wire Wire Line
 	7600 6400 7600 6150
@@ -1250,7 +1250,7 @@ F 3 "http://aosmd.com/res/data_sheets/AOD403.pdf" H 9150 6750 60  0001 L CNN
 	1    0    0    1   
 $EndComp
 Wire Wire Line
-	8650 6350 8600 6350
+	8650 6450 8600 6450
 $Comp
 L obbo_Transistors:AOD403 Q4
 U 1 1 5D7C9BD1
@@ -1263,7 +1263,7 @@ F 3 "http://aosmd.com/res/data_sheets/AOD403.pdf" H 10100 6750 60  0001 L CNN
 	1    0    0    1   
 $EndComp
 Wire Wire Line
-	9600 6350 9550 6350
+	9600 6450 9550 6450
 $Comp
 L obbo_Transistors:AOD403 Q5
 U 1 1 5D7ED79D
@@ -1287,9 +1287,9 @@ F 3 "http://aosmd.com/res/data_sheets/AOD403.pdf" H 12800 6750 60  0001 L CNN
 	-1   0    0    1   
 $EndComp
 Wire Wire Line
-	11950 6350 12000 6350
+	11950 6450 12000 6450
 Wire Wire Line
-	12950 6350 12900 6350
+	12950 6450 12900 6450
 $Comp
 L obbo_Transistors:AOD240 Q7
 U 1 1 5D83EF91
@@ -1313,9 +1313,9 @@ F 3 "http://aosmd.com/res/data_sheets/AOD240.pdf" H 10100 7750 60  0001 L CNN
 	1    0    0    -1  
 $EndComp
 Wire Wire Line
-	9600 7550 9550 7550
+	9600 7450 9550 7450
 Wire Wire Line
-	8650 7550 8600 7550
+	8650 7450 8600 7450
 $Comp
 L obbo_Transistors:AOD240 Q9
 U 1 1 5D860B1A
@@ -1339,9 +1339,9 @@ F 3 "http://aosmd.com/res/data_sheets/AOD240.pdf" H 12800 7750 60  0001 L CNN
 	-1   0    0    -1  
 $EndComp
 Wire Wire Line
-	12900 7550 12950 7550
+	12900 7450 12950 7450
 Wire Wire Line
-	11950 7550 12000 7550
+	11950 7450 12000 7450
 $Comp
 L Device:D_Zener D3
 U 1 1 5D9670F1
@@ -1396,7 +1396,7 @@ Connection ~ 12900 3050
 Wire Wire Line
 	12900 3550 12900 3450
 Wire Wire Line
-	13300 3550 13300 3350
+	13400 3550 13400 3350
 Wire Wire Line
 	13600 3050 13900 3050
 $Comp
@@ -1426,7 +1426,7 @@ Wire Wire Line
 Wire Wire Line
 	12900 3050 13200 3050
 Wire Wire Line
-	12900 3550 13300 3550
+	12900 3550 13400 3550
 Connection ~ 12900 3550
 $Comp
 L Connector:Screw_Terminal_01x02 J1
