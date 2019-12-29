@@ -29,8 +29,8 @@
 #define TERMINAL_HELP					(0x3f)
 #define TERMINAL_SPACE					(0x20)
 
-#define UART_INPUT_BUFFER_LENGTH		(64)
-#define UART_OUTPUT_BUFFER_LENGTH		(128)
+#define UART_INPUT_BUFFER_LENGTH		(24)
+#define UART_OUTPUT_BUFFER_LENGTH		(72)
 #define UART_OPTION_LENGTH				(16)
 	
 typedef struct CircularBuffer {

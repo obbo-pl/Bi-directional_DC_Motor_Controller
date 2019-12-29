@@ -20,10 +20,10 @@ void lpfilter_Set(LPFu16_t *filter, uint8_t length)
 	if (filter->length > 16) filter->length = 16;
 }
 
-void lpFilter_Fill(LPFu16_t *filter, uint16_t value)
+void lpFilter_Fill(LPFu16_t *filter, uint16_t val)
 {
-	filter->sum = value << filter->length;
-	filter->average = value;
+	filter->sum = (uint32_t)val << filter->length;
+	filter->average = val;
 }
 
 uint16_t lpfilter_Filter(LPFu16_t *filter, uint16_t new_value)

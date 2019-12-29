@@ -31,8 +31,8 @@
 // ADC - checks battery voltage
 // UART - serial communication (9600) for advanced configuration
 
-// Program Memory Usage :	7168 bytes  87,5 % Full
-// Data Memory Usage 	:	941 bytes   91,9 % Full
+// Program Memory Usage :	7550 bytes  92,2 % Full
+// Data Memory Usage 	:	917 bytes   89,6 % Full
 // EEPROM Memory Usage 	:	260 bytes   50,8 % Full
 
 
@@ -61,7 +61,7 @@ uint8_t EEMEM EEMEM_curve[256] = {0x00, 0x06, 0x0c, 0x12, 0x12, 0x12, 0x12, 0x12
 uint8_t curve[256];
 uint8_t EEMEM EEMEM_battery_cut = 0xaa;
 uint8_t EEMEM EEMEM_battery_divider = 0x12; 
-uint8_t EEMEM EEMEM_custom_filter_length = 0x06;
+uint8_t EEMEM EEMEM_custom_filter_length = 0x05;
 uint8_t EEMEM EEMEM_speed_limit = 0x80;
  
 uint8_t configuration_jumpers = 0x00;
@@ -81,6 +81,7 @@ DCCON_t state = {.errors = 0,
 				 .channel_move_maximum = 0,
 				 .channel_move_minimum = 0,
 				 .speed_max = SPEED_MAX,
+				 .device_info = device_info,
 };
 
 DELAY_t timer_adc;
@@ -102,10 +103,10 @@ void main_StartMotorTimer(void);
 uint8_t main_ReadMotorTimer(void);
 void main_InitCommonTimer(void);
 void main_InitADC(void);
-bool main_ReadADC(uint8_t *value);
+bool main_ReadADC(uint8_t *val);
 void main_InitExpCurve(void);
-bool main_CheckChannelInput(uint16_t *value, bool verify);
-bool main_VerifyChannelValue(uint16_t *value);
+bool main_CheckChannelInput(uint16_t *val, bool verify);
+bool main_VerifyChannelValue(uint16_t *val);
 void main_UpdateRecovery(int recovery_delay);
 void main_CheckBattery(void);
 void main_InitIO(void);
@@ -141,16 +142,23 @@ int main(void)
 	main_InitSetup();
 	main_InitInfo();
 	uart_Init(&terminal, &state);
-	main_InitTimers();
 	delays_Init(&timer_signal_ms, SIGNAL_LOST_TIMEOUT_MS);
 	delays_Pause(&timer_signal_ms);
 	delays_Init(&timer_recalc_ms, RECALCULATE_INTERVAL_MS);
 	delays_Pause(&timer_recalc_ms);
+	delays_Init(&timer_adc, ADC_CONVERSION_TIMEOUT_MS);
 	lpfilter_Set(&filter_adc, ADC_FILTER);
 	lpFilter_Fill(&filter_adc, 0xff);
+	main_InitTimers();
 	main_FlashLedShort();
-	_delay_ms(200);
-	if (testbit(configuration_jumpers, JUMPER_SERVICE_MODE_bp)) goto READY_TO_RUN;
+	_delay_ms(400);
+	if (testbit(configuration_jumpers, JUMPER_SERVICE_MODE_bp)) {
+		state.channel_neutral = CHANNEL_PULSE_NEUTRAL;
+		state.channel_maximum = CHANNEL_PULSE_MAXIMUM + CHANNEL_PULSE_ZONE_NEUTRAL + CHANNEL_PULSE_ERROR;
+		state.channel_minimum = CHANNEL_PULSE_MINIMUM - CHANNEL_PULSE_ZONE_NEUTRAL - CHANNEL_PULSE_ERROR;
+		delays_Pause(&timer_adc);
+		goto READY_TO_RUN;
+	}
 	main_CheckBattery();
 	if (state.errors) {
 		while (1) {
@@ -158,6 +166,7 @@ int main(void)
 			_delay_ms(3000);
 		}
 	}
+	delays_Pause(&timer_adc);
 	// wait for pulse from receiver
 	uint8_t pulses = 0;
 	while (pulses < (25)) {
@@ -170,8 +179,8 @@ int main(void)
 	pulses = 0;
 	while (pulses < (25)) {
 		if (main_CheckChannelInput(&state.channel_value, false)) {
-			if ((state.channel_value > (CHANNEL_PULSE_NEUTRAL - 2 * CHANNEL_PULSE_ZONE_NEUTRAL)) 
-				&& (state.channel_value < (CHANNEL_PULSE_NEUTRAL + 2 * CHANNEL_PULSE_ZONE_NEUTRAL))) {
+			if ((state.channel_value > (CHANNEL_PULSE_NEUTRAL - CHANNEL_PULSE_ERROR)) 
+				&& (state.channel_value < (CHANNEL_PULSE_NEUTRAL + CHANNEL_PULSE_ERROR))) {
 				pulses += 1;
 			} else {
 				pulses = 0;
@@ -182,8 +191,8 @@ int main(void)
 	pulses = 0;
 	while (pulses < (16)) {
 		if (main_CheckChannelInput(&state.channel_value, false)) {
-			if ((state.channel_value > (CHANNEL_PULSE_NEUTRAL - 2 * CHANNEL_PULSE_ZONE_NEUTRAL)) 
-				&& (state.channel_value < (CHANNEL_PULSE_NEUTRAL + 2 * CHANNEL_PULSE_ZONE_NEUTRAL))) {
+			if ((state.channel_value > (CHANNEL_PULSE_NEUTRAL - CHANNEL_PULSE_ERROR)) 
+				&& (state.channel_value < (CHANNEL_PULSE_NEUTRAL + CHANNEL_PULSE_ERROR))) {
 				pulses += 1;
 				state.channel_neutral += state.channel_value;
 			} else {
@@ -239,7 +248,6 @@ int main(void)
 	}
 	setbit(calibration_progres, CALIBRATION_READY_bp);
 READY_TO_RUN:
-	delays_Init(&timer_adc, ADC_CONVERSION_TIMEOUT_MS);
 	if (testbit(configuration_jumpers, JUMPER_SPEED_FILTER_bp)) {
 		lpfilter_Set(&filter_speed, state.custom_filter_length);
 	} else {
@@ -253,6 +261,7 @@ READY_TO_RUN:
 	delays_Reset(&timer_recalc_ms);
 	main_SetLedOn();
 	sei();
+	uint8_t command_length;
     while (1) {
 		// check signal
 		main_CheckChannelInput(&(state.channel_value), true);
@@ -266,15 +275,14 @@ READY_TO_RUN:
 			main_RecalculateSpeed(&state.rotation, state.channel_value);
 			delays_Reset(&timer_recalc_ms);
 		}
-		if (testbit(configuration_jumpers, JUMPER_SERVICE_MODE_bp)) {
-			uint8_t len;
- 			uart_SendOutputBuffer(&terminal.output_buffer);
-			if (terminal.change_to_write) main_SaveSetup();
-			if (terminal.input_is_full) uart_DropInputBuffer(&terminal);
-			if (terminal_FindNewLine(&terminal, &len)) terminal_ParseCommand(&terminal, len);
-		} else {
-			main_SetMotorSpeedPWM(&state.rotation);
-		}
+		// check terminal buffer
+		uart_SendOutputBuffer(&(terminal.output_buffer));
+		if (terminal.change_to_write) main_SaveSetup();
+		if (terminal.input_is_full) uart_DropInputBuffer(&terminal);
+		if (terminal_FindNewLine(&terminal, &command_length)) terminal_ParseCommand(&terminal, command_length);
+		// set rotation
+		main_SetMotorSpeedPWM(&state.rotation);
+		// check state
 		if (delays_Check(&timer_adc)) setbit(state.errors, ERROR_ADC_TIMEOUT_bp);
 	    main_CheckBattery();
     }
@@ -282,7 +290,7 @@ READY_TO_RUN:
 
 ISR(USART_RXC_vect)
 {
-	if (testbit(configuration_jumpers, JUMPER_SERVICE_MODE_bp)) uart_InterruptHandler(&terminal);
+	uart_InterruptHandler(&terminal);
 }
 
 ISR(TIMER0_OVF_vect)
@@ -328,7 +336,6 @@ void main_InitInfo(void)
 	for (int i = 0; i < DEVICE_INFO_SIZE; i++) {
 		*dest++ = (char)pgm_read_byte(src++);
 	}
-	state.device_info = device_info;
 }
 
 void main_InitTimers(void)
@@ -410,25 +417,24 @@ void main_InitADC(void)
 	ADCSRA |= (1 << ADSC);									// ADC Start Conversion
 }
 
- bool main_ReadADC(uint8_t *value)
+ bool main_ReadADC(uint8_t *val)
 {
 	bool result = false;
 	if ((ADCSRA >> ADIF) & 0x01) {
-		*value = ADCH;
+		*val = ADCH;
 		ADCSRA |= (1 << ADIF);
 		result = true;
 	}
 	return result; 
 }
 
-bool main_CheckChannelInput(uint16_t *value, bool verify)
+bool main_CheckChannelInput(uint16_t *val, bool verify)
 {
 	// check the channel pulse length, it should be between 1ms and 2ms 
 	// timer prescaler is set to 4us per tick
 	// then should count from 250 to 500 tick per pulse
 	// returns "true" and updates "value" when a new pulse occurs
 	bool changed = false;
-	uint16_t pulse_length;
 	uint8_t channel_level = READ_CHANNEL1;
 	if (state.channel_level_prev != channel_level) {
 		if (channel_level == CHANNEL_LEVEL_ACTIVE) {
@@ -437,11 +443,12 @@ bool main_CheckChannelInput(uint16_t *value, bool verify)
 			main_StopPulseTimer();
 			if (main_IsPulseTimerOverload()) {
 				setbit(state.errors, ERROR_TIMER_OVERLOAD_bp);
+				state.channel_last = 0xffff;
 				main_UpdateRecovery(RECOVERY_DELAY_PL);
    			} else {
-				pulse_length = main_ReadPulseTimer();
-				if (main_VerifyChannelValue(&pulse_length) || !verify) {
-					*value = pulse_length;
+				state.channel_last = main_ReadPulseTimer();
+				if (main_VerifyChannelValue(&(state.channel_last)) || !verify) {
+					*val = state.channel_last;
 					main_UpdateRecovery(-1);
 					delays_Reset(&timer_signal_ms);
 					changed = true;
@@ -456,16 +463,16 @@ bool main_CheckChannelInput(uint16_t *value, bool verify)
 	return changed;
 }
 
-bool main_VerifyChannelValue(uint16_t *value)
+bool main_VerifyChannelValue(uint16_t *val)
 {
-	if ((*value < (state.channel_maximum + CHANNEL_PULSE_ERROR)) && (*value > (state.channel_minimum - CHANNEL_PULSE_ERROR))) return true;
+	if ((*val < (state.channel_maximum + CHANNEL_PULSE_ERROR)) && (*val > (state.channel_minimum - CHANNEL_PULSE_ERROR))) return true;
 	else return false;
 }
 
 void main_UpdateRecovery(int recovery)
 {
 	if (recovery < 0) {
-		if (state.recovery > -(ACCEPTED_ERRORS_RV * RECOVERY_DELAY_PL)) state.recovery += recovery;
+		if (state.recovery > -(ACCEPTED_ERRORS * RECOVERY_DELAY_PL)) state.recovery += recovery;
 	} else {
 		if (state.recovery < RECOVERY_DELAY_PL) state.recovery += recovery;
 	}

@@ -22,8 +22,9 @@ typedef struct dc_rotation {
 
 typedef struct dc_controller {
 	const char *device_info;
-	uint8_t errors;
+	volatile uint8_t errors;
 	uint16_t channel_value;
+	uint16_t channel_last;
 	uint16_t channel_prev;
 	uint8_t channel_level_prev;
 	DCROTATION_t rotation;

@@ -25,7 +25,7 @@ typedef struct lowpass_filter {
 
 
 void lpfilter_Set(LPFu16_t *filter, uint8_t length);
-void lpFilter_Fill(LPFu16_t *filter, uint16_t value);
+void lpFilter_Fill(LPFu16_t *filter, uint16_t val);
 uint16_t lpfilter_Filter(LPFu16_t *filter, uint16_t new_value);
 
 

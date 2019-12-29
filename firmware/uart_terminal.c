@@ -34,11 +34,12 @@ void terminal_SendNL(CircularBuffer_t *output);
 
 void command_SendSystemInfo(DCTERMINAL_t *terminal);
 void command_SendHelp(DCTERMINAL_t *terminal);
-void command_ChannelPulseLength(char *option, CircularBuffer_t *output);
-void command_ChannelPulsePolarity(char *option, CircularBuffer_t *output);
 void command_ShowErrors(DCTERMINAL_t *terminal);
+void command_ClearErrors(DCTERMINAL_t *terminal);
 void command_ShowChannelValue(DCTERMINAL_t *terminal);
-void command_BatteryVoltageBinary(DCTERMINAL_t *terminal);
+void command_ShowChannelLast(DCTERMINAL_t *terminal);
+void command_ShowChannelRange(DCTERMINAL_t *terminal);
+void command_BatteryVoltageValue(DCTERMINAL_t *terminal);
 void command_BatteryVoltageDivider(DCTERMINAL_t *terminal);
 void command_BatteryVoltageCut(DCTERMINAL_t *terminal);
 void command_BatterySpeedLimit(DCTERMINAL_t *terminal);
@@ -52,13 +53,16 @@ typedef struct terminal_command {
 	void (*callback)(DCTERMINAL_t *);
 } TERMINAL_COMMAND_t;
 
-#define COMMANDS_COUNT		8
+#define COMMANDS_COUNT		11
 #define COMMAND_LENGTH		4
 const TERMINAL_COMMAND_t terminal_commands[COMMANDS_COUNT] = {
 	{ .pattern = "@VER", .callback = command_SendSystemInfo,},
 	{ .pattern = "@ERR", .callback = command_ShowErrors,},
+    { .pattern = "@ERC", .callback = command_ClearErrors,},
 	{ .pattern = "@CHV", .callback = command_ShowChannelValue,},
-	{ .pattern = "@BVB", .callback = command_BatteryVoltageBinary,},
+	{ .pattern = "@CHL", .callback = command_ShowChannelLast,},
+	{ .pattern = "@CHR", .callback = command_ShowChannelRange,},
+	{ .pattern = "@BVV", .callback = command_BatteryVoltageValue,},
 	{ .pattern = "@BVC", .callback = command_BatteryVoltageCut,},
 	{ .pattern = "@BVD", .callback = command_BatteryVoltageDivider,},
 	{ .pattern = "@BSL", .callback = command_BatterySpeedLimit,},
@@ -68,8 +72,6 @@ const TERMINAL_COMMAND_t terminal_commands[COMMANDS_COUNT] = {
 #define SET_UART_TX_OUT	 		(glue2(DDR, CONFIG_SERIAL_PORT) |= (1 << glue3(DD, CONFIG_SERIAL_PORT, CONFIG_SERIAL_Tx_PIN)))
 #define SET_UART_RX_IN			(glue2(DDR, CONFIG_SERIAL_PORT) &= ~(1 << glue3(DD, CONFIG_SERIAL_PORT, CONFIG_SERIAL_Rx_PIN)))
 #define SET_UART_RX_PULLUP		(glue2(PORT, CONFIG_SERIAL_PORT) |= (1 << glue3(P, CONFIG_SERIAL_PORT, CONFIG_SERIAL_Rx_PIN)))
-
-#define ELEMENTS(x)  (sizeof(x) / sizeof((x)[0]))
 
 
 uint8_t circular_buffer_Next(uint8_t pointer, uint8_t length)
@@ -88,8 +90,9 @@ bool circular_buffer_IsFull(const uint8_t start, const uint8_t end, uint8_t leng
 bool circular_buffer_StringCopy(CircularBuffer_t *dest, const char *src)
 {
 	bool result = true;
-	while (result && !(*src == 0x00)) {
-		dest->data[dest->end] = *src++;
+	const char *s = src;
+	while (result && !(*s == 0x00)) {
+		dest->data[dest->end] = *s++;
 		dest->end = circular_buffer_Next(dest->end, UART_OUTPUT_BUFFER_LENGTH);
 		result = !(circular_buffer_IsFull(dest->start, dest->end, UART_OUTPUT_BUFFER_LENGTH));
 	}
@@ -233,7 +236,8 @@ bool terminal_FindCommand(DCTERMINAL_t *terminal, uint8_t len)
 	}
 	if (terminal->input_buffer[0] == TERMINAL_NEW_COMMAND) {
 		for (int i = 0; i < COMMANDS_COUNT; i++) {
-			const char *patern = terminal_commands[i].pattern;
+			const char *patern;
+			patern = terminal_commands[i].pattern;
 			bool match = true;
 			for (int j = 1; j < COMMAND_LENGTH; j++) {
 				if (terminal->input_buffer[j] != patern[j]) match = false;
@@ -266,36 +270,69 @@ void terminal_ClearCommandOptionBuffer(char *buffer)
 void command_ShowErrors(DCTERMINAL_t *terminal)
 {
 	circular_buffer_StringCopy(&(terminal->output_buffer), "Errors: ");
-	char buffer [9];
+	char buffer [10];
 	int i = 0x80;
 	while (i > terminal->state->errors)  {
 		i = i >> 1;
 		circular_buffer_StringCopy(&(terminal->output_buffer), "0");
 	}
-	itoa(terminal->state->errors, buffer, 2);
-	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
+	if (terminal->state->errors > 0) {
+		itoa(terminal->state->errors, buffer, 2);
+		circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
+	}
+	terminal_SendNL(&(terminal->output_buffer));
+}
+
+void command_ClearErrors(DCTERMINAL_t *terminal)
+{
+	circular_buffer_StringCopy(&(terminal->output_buffer), "Errors cleared");
+	terminal->state->errors = 0x00;
 	terminal_SendNL(&(terminal->output_buffer));
 }
 
 void command_ShowChannelValue(DCTERMINAL_t *terminal)
 {
-	circular_buffer_StringCopy(&(terminal->output_buffer), "Current channel value [timer tick]: ");
+	circular_buffer_StringCopy(&(terminal->output_buffer), "Current channel value [tick]: ");
 	char buffer [6];
 	itoa(terminal->state->channel_value, buffer, 10);
 	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
 	terminal_SendNL(&(terminal->output_buffer));
 }
 
-void command_BatteryVoltageBinary(DCTERMINAL_t *terminal)
+void command_ShowChannelLast(DCTERMINAL_t *terminal)
+{
+	circular_buffer_StringCopy(&(terminal->output_buffer), "Last pulse length [tick]: ");
+	char buffer [6];
+	itoa(terminal->state->channel_last, buffer, 10);
+	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
+	terminal_SendNL(&(terminal->output_buffer));
+}
+
+void command_ShowChannelRange(DCTERMINAL_t *terminal)
+{
+	circular_buffer_StringCopy(&(terminal->output_buffer), "Calibrated pulse length [tick]: ");
+	char buffer [6];
+	itoa(terminal->state->channel_minimum, buffer, 10);
+	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
+	circular_buffer_StringCopy(&(terminal->output_buffer), ", ");
+	itoa(terminal->state->channel_neutral, buffer, 10);
+	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
+	circular_buffer_StringCopy(&(terminal->output_buffer), ", ");
+	itoa(terminal->state->channel_maximum, buffer, 10);
+	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
+	terminal_SendNL(&(terminal->output_buffer));
+}
+
+void command_BatteryVoltageValue(DCTERMINAL_t *terminal)
 {
 	circular_buffer_StringCopy(&(terminal->output_buffer), "Battery voltage [A/D, volt]: ");
-	char buffer[6];
+	char buffer[8];
 	itoa(terminal->state->battery_voltage, buffer, 10);
 	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
 	circular_buffer_StringCopy(&(terminal->output_buffer), ", ");
 	float volt_f = terminal->state->battery_voltage;
 	volt_f /= terminal->state->battery_divider;
-	ftoa(volt_f, buffer, ELEMENTS(buffer));
+	ftoa(volt_f, buffer, 8);
 	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
 	circular_buffer_StringCopy(&(terminal->output_buffer), "V");
 	terminal_SendNL(&(terminal->output_buffer));
@@ -312,7 +349,7 @@ void command_BatteryVoltageDivider(DCTERMINAL_t *terminal)
 			terminal_SendBadArgument(&terminal->output_buffer);
 		}
 	}
-	circular_buffer_StringCopy(&(terminal->output_buffer), "Battery voltage divider [%]: ");
+	circular_buffer_StringCopy(&(terminal->output_buffer), "Battery voltage divider: ");
 	char buffer [4];
 	itoa(terminal->state->battery_divider, buffer, 10);
 	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
@@ -331,13 +368,13 @@ void command_BatteryVoltageCut(DCTERMINAL_t *terminal)
 		}
 	}
 	circular_buffer_StringCopy(&(terminal->output_buffer), "Battery voltage cut level [A/D, volt]: ");
-	char buffer [6];
+	char buffer [8];
 	itoa(terminal->state->battery_cut, buffer, 10);
 	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
 	circular_buffer_StringCopy(&(terminal->output_buffer), ", ");
 	float volt_f = terminal->state->battery_cut;
 	volt_f /= terminal->state->battery_divider;
-	ftoa(volt_f, buffer, ELEMENTS(buffer));
+	ftoa(volt_f, buffer, 8);
 	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
 	circular_buffer_StringCopy(&(terminal->output_buffer), "V");
 	terminal_SendNL(&(terminal->output_buffer));
@@ -354,7 +391,7 @@ void command_BatterySpeedLimit(DCTERMINAL_t *terminal)
 			terminal_SendBadArgument(&terminal->output_buffer);
 		}
 	}
-	circular_buffer_StringCopy(&(terminal->output_buffer), "Speed limit at low battery voltage (in range 0 - 255): ");
+	circular_buffer_StringCopy(&(terminal->output_buffer), "Speed limit at low battery voltage (0-255): ");
 	char buffer [4];
 	itoa(terminal->state->speed_limit, buffer, 10);
 	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
@@ -372,7 +409,7 @@ void command_SpeedFilterCustom(DCTERMINAL_t *terminal)
 			terminal_SendBadArgument(&terminal->output_buffer);
 		}
 	}
-	circular_buffer_StringCopy(&(terminal->output_buffer), "Custom speed filter length (in range 3 - 16): ");
+	circular_buffer_StringCopy(&(terminal->output_buffer), "Custom speed filter length (3-16): ");
 	char buffer [4];
 	itoa(terminal->state->custom_filter_length, buffer, 10);
 	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
@@ -428,7 +465,7 @@ void ftoa(float f, char *buffer, uint8_t length)
 		start++;
 		if (*start == 0x00) break;
 	}
-	*start++ = '.';
+	*(start++) = '.';
 	int minor = (int)((f - major) * 10);
 	itoa(minor, start, 10);
 }

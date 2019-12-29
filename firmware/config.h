@@ -15,9 +15,9 @@
 #define CONFIG_H_
 
 
-// State LED port
-#define CONFIG_LED_PORT			D
-#define CONFIG_LED_PIN			3
+// State LED (red) port
+#define CONFIG_LEDR_PORT		D
+#define CONFIG_LEDR_PIN			3
 
 
 // I/O port for motor bridge
