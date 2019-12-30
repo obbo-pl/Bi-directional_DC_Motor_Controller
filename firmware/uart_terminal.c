@@ -285,7 +285,7 @@ void command_ShowErrors(DCTERMINAL_t *terminal)
 
 void command_ClearErrors(DCTERMINAL_t *terminal)
 {
-	circular_buffer_StringCopy(&(terminal->output_buffer), "Errors cleared");
+	circular_buffer_StringCopy(&(terminal->output_buffer), "Cleared");
 	terminal->state->errors = 0x00;
 	terminal_SendNL(&(terminal->output_buffer));
 }

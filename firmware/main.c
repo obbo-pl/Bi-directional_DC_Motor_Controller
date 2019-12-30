@@ -31,9 +31,9 @@
 // ADC - checks battery voltage
 // UART - serial communication (9600) for advanced configuration
 
-// Program Memory Usage :	7550 bytes  92,2 % Full
-// Data Memory Usage 	:	917 bytes   89,6 % Full
-// EEPROM Memory Usage 	:	260 bytes   50,8 % Full
+// Program Memory Usage :  7706 bytes   94,1 % Full
+// Data Memory Usage 	:	911 bytes   89,0 % Full
+// EEPROM Memory Usage 	:	267 bytes   52,1 % Full
 
 
 #define DEVICE_INFO_SIZE			40
@@ -63,6 +63,12 @@ uint8_t EEMEM EEMEM_battery_cut = 0xaa;
 uint8_t EEMEM EEMEM_battery_divider = 0x12; 
 uint8_t EEMEM EEMEM_custom_filter_length = 0x05;
 uint8_t EEMEM EEMEM_speed_limit = 0x80;
+
+uint16_t EEMEM EEMEM_channel_minimum = 250;
+uint16_t EEMEM EEMEM_channel_neutral = 375;
+uint16_t EEMEM EEMEM_channel_maximum = 500;
+uint8_t EEMEM EEMEM_channel_saved = 0x00;
+
  
 uint8_t configuration_jumpers = 0x00;
 bool motor_running_right = true;
@@ -131,6 +137,10 @@ void main_ApplySpeedCurve(uint8_t *speed);
 void main_RecalculateSpeed(DCROTATION_t *rotation, uint16_t pulse_length);
 void main_ReadConfigurationJumper(void);
 void main_SaveSetup(void);
+void main_SaveCalibration(void);
+void main_ReadCalibration(void);
+bool main_IsCalibrationSaved(void);
+void main_ClearCalibration(void);
 
 
 int main(void) 
@@ -156,6 +166,7 @@ int main(void)
 		state.channel_neutral = CHANNEL_PULSE_NEUTRAL;
 		state.channel_maximum = CHANNEL_PULSE_MAXIMUM + CHANNEL_PULSE_ZONE_NEUTRAL + CHANNEL_PULSE_ERROR;
 		state.channel_minimum = CHANNEL_PULSE_MINIMUM - CHANNEL_PULSE_ZONE_NEUTRAL - CHANNEL_PULSE_ERROR;
+		main_ClearCalibration();
 		delays_Pause(&timer_adc);
 		goto READY_TO_RUN;
 	}
@@ -175,6 +186,11 @@ int main(void)
 	setbit(calibration_progres, CALIBRATION_SIGNAL_bp);
 	main_ShowStatus(calibration_progres, 1);
 	_delay_ms(1000);
+	// skip calibration
+	if (main_IsCalibrationSaved()) {
+		main_ReadCalibration();
+		goto SKIP_CALIBRATION;
+	}
 	// wait for stable pulse in zone "neutral"
 	pulses = 0;
 	while (pulses < (25)) {
@@ -234,6 +250,8 @@ int main(void)
 	}
 	setbit(calibration_progres, CALIBRATION_MINIMUM_bp);
 	main_ShowStatus(calibration_progres, 4);
+	main_SaveCalibration();
+SKIP_CALIBRATION:
 	// wait for return to zone "neutral"
 	pulses = 0;
 	while (pulses < (25)) {
@@ -693,5 +711,31 @@ void main_SaveSetup(void)
 	eeprom_write_byte(&EEMEM_battery_divider, state.battery_divider);
 	eeprom_write_byte(&EEMEM_custom_filter_length, state.custom_filter_length);
 	eeprom_write_byte(&EEMEM_speed_limit, state.speed_limit);
+}
 
+void main_SaveCalibration(void)
+{
+	eeprom_write_word(&EEMEM_channel_minimum, state.channel_minimum);
+	eeprom_write_word(&EEMEM_channel_neutral, state.channel_neutral);
+	eeprom_write_word(&EEMEM_channel_maximum, state.channel_maximum);
+	eeprom_write_byte(&EEMEM_channel_saved, 0xff);
+	
+}
+
+void main_ReadCalibration(void)
+{
+	state.channel_minimum = eeprom_read_word(&EEMEM_channel_minimum);
+	state.channel_neutral = eeprom_read_word(&EEMEM_channel_neutral);
+	state.channel_maximum = eeprom_read_word(&EEMEM_channel_maximum);
+}
+
+bool main_IsCalibrationSaved(void)
+{
+	uint8_t result = eeprom_read_byte(&EEMEM_channel_saved);
+	return (bool)result;
+}
+
+void main_ClearCalibration(void)
+{
+	eeprom_write_byte(&EEMEM_channel_saved, 0x00);
 }
