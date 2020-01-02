@@ -36,6 +36,7 @@ void command_SendSystemInfo(DCTERMINAL_t *terminal);
 void command_SendHelp(DCTERMINAL_t *terminal);
 void command_ShowErrors(DCTERMINAL_t *terminal);
 void command_ClearErrors(DCTERMINAL_t *terminal);
+void command_SetModeSilent(DCTERMINAL_t *terminal);
 void command_ShowChannelValue(DCTERMINAL_t *terminal);
 void command_ShowChannelLast(DCTERMINAL_t *terminal);
 void command_ShowChannelRange(DCTERMINAL_t *terminal);
@@ -53,12 +54,13 @@ typedef struct terminal_command {
 	void (*callback)(DCTERMINAL_t *);
 } TERMINAL_COMMAND_t;
 
-#define COMMANDS_COUNT		11
+#define COMMANDS_COUNT		12
 #define COMMAND_LENGTH		4
 const TERMINAL_COMMAND_t terminal_commands[COMMANDS_COUNT] = {
 	{ .pattern = "@VER", .callback = command_SendSystemInfo,},
 	{ .pattern = "@ERR", .callback = command_ShowErrors,},
     { .pattern = "@ERC", .callback = command_ClearErrors,},
+	{ .pattern = "@MDS", .callback = command_SetModeSilent,},
 	{ .pattern = "@CHV", .callback = command_ShowChannelValue,},
 	{ .pattern = "@CHL", .callback = command_ShowChannelLast,},
 	{ .pattern = "@CHR", .callback = command_ShowChannelRange,},
@@ -120,6 +122,7 @@ void uart_Init(DCTERMINAL_t *terminal, DCCON_t *state)
 	UCSRB = (1 << RXCIE) | (1 << RXEN) | (1 << TXEN);		// RX Complete Interrupt Enable, Receiver Enable, Transmitter Enable
 	UCSRC = (1 << URSEL) | (1 << UCSZ0) | (1 << UCSZ1);     // Asynchronous Operation, Parity Mode Disabled, Stop Bit: 1-bit, Character Size: 8-bit
 	terminal->state = state;
+	terminal->silent = false;
 	terminal_ClearInputBuffer(terminal);
 	terminal_InitOutputBuffer(terminal);
 }
@@ -269,7 +272,7 @@ void terminal_ClearCommandOptionBuffer(char *buffer)
 
 void command_ShowErrors(DCTERMINAL_t *terminal)
 {
-	circular_buffer_StringCopy(&(terminal->output_buffer), "Errors: ");
+	if (!terminal->silent) circular_buffer_StringCopy(&(terminal->output_buffer), "Errors: ");
 	char buffer [10];
 	int i = 0x80;
 	while (i > terminal->state->errors)  {
@@ -285,14 +288,21 @@ void command_ShowErrors(DCTERMINAL_t *terminal)
 
 void command_ClearErrors(DCTERMINAL_t *terminal)
 {
-	circular_buffer_StringCopy(&(terminal->output_buffer), "Cleared");
+	if (!terminal->silent) circular_buffer_StringCopy(&(terminal->output_buffer), "Cleared");
 	terminal->state->errors = 0x00;
 	terminal_SendNL(&(terminal->output_buffer));
 }
 
+void command_SetModeSilent(DCTERMINAL_t *terminal)
+{
+	terminal->silent = !(terminal->silent);
+	if (terminal->silent) terminal_SendNL(&(terminal->output_buffer));
+	else terminal_SendOK(&(terminal->output_buffer));
+}
+
 void command_ShowChannelValue(DCTERMINAL_t *terminal)
 {
-	circular_buffer_StringCopy(&(terminal->output_buffer), "Current channel value [tick]: ");
+	if (!terminal->silent) circular_buffer_StringCopy(&(terminal->output_buffer), "Current channel value [tick]: ");
 	char buffer [6];
 	itoa(terminal->state->channel_value, buffer, 10);
 	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
@@ -301,7 +311,7 @@ void command_ShowChannelValue(DCTERMINAL_t *terminal)
 
 void command_ShowChannelLast(DCTERMINAL_t *terminal)
 {
-	circular_buffer_StringCopy(&(terminal->output_buffer), "Last pulse length [tick]: ");
+	if (!terminal->silent) circular_buffer_StringCopy(&(terminal->output_buffer), "Last pulse length [tick]: ");
 	char buffer [6];
 	itoa(terminal->state->channel_last, buffer, 10);
 	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
@@ -310,7 +320,7 @@ void command_ShowChannelLast(DCTERMINAL_t *terminal)
 
 void command_ShowChannelRange(DCTERMINAL_t *terminal)
 {
-	circular_buffer_StringCopy(&(terminal->output_buffer), "Calibrated pulse length [tick]: ");
+	if (!terminal->silent) circular_buffer_StringCopy(&(terminal->output_buffer), "Calibrated pulse length [tick]: ");
 	char buffer [6];
 	itoa(terminal->state->channel_minimum, buffer, 10);
 	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
@@ -325,7 +335,7 @@ void command_ShowChannelRange(DCTERMINAL_t *terminal)
 
 void command_BatteryVoltageValue(DCTERMINAL_t *terminal)
 {
-	circular_buffer_StringCopy(&(terminal->output_buffer), "Battery voltage [A/D, volt]: ");
+	if (!terminal->silent) circular_buffer_StringCopy(&(terminal->output_buffer), "Battery voltage [A/D, volt]: ");
 	char buffer[8];
 	itoa(terminal->state->battery_voltage, buffer, 10);
 	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
@@ -349,7 +359,7 @@ void command_BatteryVoltageDivider(DCTERMINAL_t *terminal)
 			terminal_SendBadArgument(&terminal->output_buffer);
 		}
 	}
-	circular_buffer_StringCopy(&(terminal->output_buffer), "Battery voltage divider: ");
+	if (!terminal->silent) circular_buffer_StringCopy(&(terminal->output_buffer), "Battery voltage divider: ");
 	char buffer [4];
 	itoa(terminal->state->battery_divider, buffer, 10);
 	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
@@ -367,7 +377,7 @@ void command_BatteryVoltageCut(DCTERMINAL_t *terminal)
 			terminal_SendBadArgument(&terminal->output_buffer);
 		}
 	}
-	circular_buffer_StringCopy(&(terminal->output_buffer), "Battery voltage cut level [A/D, volt]: ");
+	if (!terminal->silent) circular_buffer_StringCopy(&(terminal->output_buffer), "Battery voltage cut level [A/D, volt]: ");
 	char buffer [8];
 	itoa(terminal->state->battery_cut, buffer, 10);
 	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
@@ -391,7 +401,7 @@ void command_BatterySpeedLimit(DCTERMINAL_t *terminal)
 			terminal_SendBadArgument(&terminal->output_buffer);
 		}
 	}
-	circular_buffer_StringCopy(&(terminal->output_buffer), "Speed limit at low battery voltage (0-255): ");
+	if (!terminal->silent) circular_buffer_StringCopy(&(terminal->output_buffer), "Speed limit at low battery voltage (0-255): ");
 	char buffer [4];
 	itoa(terminal->state->speed_limit, buffer, 10);
 	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
@@ -402,14 +412,14 @@ void command_SpeedFilterCustom(DCTERMINAL_t *terminal)
 {
 	if (terminal->command_option[0] == TERMINAL_SPACE) {
 		int temp = atoi(terminal->command_option);
-		if ((temp > 2) && (temp <= 16)) {
+		if ((temp >= 2) && (temp <= 10)) {
 			terminal->state->custom_filter_length = temp;
 			terminal->change_to_write = true;
 		} else {
 			terminal_SendBadArgument(&terminal->output_buffer);
 		}
 	}
-	circular_buffer_StringCopy(&(terminal->output_buffer), "Custom speed filter length (3-16): ");
+	if (!terminal->silent) circular_buffer_StringCopy(&(terminal->output_buffer), "Custom speed filter length (2-10): ");
 	char buffer [4];
 	itoa(terminal->state->custom_filter_length, buffer, 10);
 	circular_buffer_StringCopy(&(terminal->output_buffer), buffer);
