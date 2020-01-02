@@ -31,8 +31,8 @@
 // ADC - checks battery voltage
 // UART - serial communication (9600) for advanced configuration
 
-// Program Memory Usage :  7706 bytes   94,1 % Full
-// Data Memory Usage 	:	911 bytes   89,0 % Full
+// Program Memory Usage :  7930 bytes   96,8 % Full
+// Data Memory Usage 	:	924 bytes   90,2 % Full
 // EEPROM Memory Usage 	:	267 bytes   52,1 % Full
 
 
@@ -299,7 +299,7 @@ READY_TO_RUN:
 		if (terminal.input_is_full) uart_DropInputBuffer(&terminal);
 		if (terminal_FindNewLine(&terminal, &command_length)) terminal_ParseCommand(&terminal, command_length);
 		// set rotation
-		main_SetMotorSpeedPWM(&state.rotation);
+		if (!testbit(configuration_jumpers, JUMPER_SERVICE_MODE_bp)) main_SetMotorSpeedPWM(&state.rotation);
 		// check state
 		if (delays_Check(&timer_adc)) setbit(state.errors, ERROR_ADC_TIMEOUT_bp);
 	    main_CheckBattery();
@@ -591,7 +591,7 @@ void main_SetMotorOff(void)
 
 void main_SetMotorSpeedPWM(DCROTATION_t *rotation)
 {
-	// prevent fast direction change
+	// prevent quick change of direction
  	if (main_IsMotorDirectionRight(&((*rotation).dir)) && motor_running_left) {
 		main_SetMotorToChangeDirection(&((*rotation).speed));
 		return;
