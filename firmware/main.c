@@ -17,12 +17,15 @@
 #include <avr/pgmspace.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include "lowpass_filter.h"
-#include "bitlib.h"
-#include "uart_terminal.h"
 #include "main.h"
+#include "lowpass_filter.h"
 #include "types.h"
 #include "delays.h"
+#include "cbuffer.h"
+#include "usart.h"
+#include "terminal.h"
+#include "terminal_commands.h"
+
 
 // resource:
 // timer0 - common timers
@@ -31,14 +34,11 @@
 // ADC - checks battery voltage
 // UART - serial communication (9600) for advanced configuration
 
-// Program Memory Usage :  7930 bytes   96,8 % Full
-// Data Memory Usage 	:	924 bytes   90,2 % Full
-// EEPROM Memory Usage 	:	267 bytes   52,1 % Full
 
-
+#define VERSION_MAJOR				"1"
+#define VERSION_MINOR				"0"
 #define DEVICE_INFO_SIZE			40
-const char DEVICE_INFO[DEVICE_INFO_SIZE]	PROGMEM = "DC (build: " __DATE__ " " __TIME__ ")";
-char device_info[DEVICE_INFO_SIZE];
+const char DEVICE_INFO[DEVICE_INFO_SIZE]	PROGMEM = "DC " VERSION_MAJOR "." VERSION_MINOR " (build: " __DATE__ " " __TIME__ ")\n\r";
 
 uint8_t EEMEM EEMEM_curve[256] = {0x00, 0x06, 0x0c, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x13,
 								0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x14, 0x14, 0x14, 0x14, 0x15, 0x15, 0x15, 0x15, 0x16, 0x16,
@@ -87,19 +87,19 @@ DCCON_t state = {.errors = 0,
 				 .channel_move_maximum = 0,
 				 .channel_move_minimum = 0,
 				 .speed_max = SPEED_MAX,
-				 .device_info = device_info,
+				 .device_info = DEVICE_INFO,
 };
 
 DELAY_t timer_adc;
 DELAY_t timer_signal_ms;
 DELAY_t timer_recalc_ms;
 
+CircularBuffer_t cbuffer;
 DCTERMINAL_t terminal;
 
 
 void main_InitTimers(void);
 void main_InitPulseTimer(void);
-void main_InitInfo(void);
 void main_StartPulseTimer(void);
 void main_StopPulseTimer(void);
 uint16_t main_ReadPulseTimer(void);
@@ -122,7 +122,7 @@ void main_SetLedOff(void);
 void main_SetLedOn(void);
 void main_ShowStatus(uint8_t status, uint8_t count);
 void main_InitSetup(void);
-void main_SetChannelConstants(void);
+void main_CalculateChannelConstants(void);
 void main_SetMotorOnLeft(uint8_t *speed);
 void main_SetMotorOnRight(uint8_t *speed);
 void main_SetMotorOff(void);
@@ -150,19 +150,27 @@ int main(void)
 	main_ReadConfigurationJumper();
 	main_InitADC();
 	main_InitSetup();
-	main_InitInfo();
-	uart_Init(&terminal, &state);
+
+	usart_Init();
+	cbuffer_Init(&cbuffer);
+	terminal_Init(&terminal, &cbuffer);
+	terminal_commands_Init(&state);
+	
+ 	terminal_SendNL(&cbuffer, true);
+ 	terminal_PrintPM(&cbuffer, state.device_info, true);
+	terminal_FlushOutBuffer(&cbuffer);
+
 	delays_Init(&timer_signal_ms, SIGNAL_LOST_TIMEOUT_MS);
 	delays_Pause(&timer_signal_ms);
 	delays_Init(&timer_recalc_ms, RECALCULATE_INTERVAL_MS);
 	delays_Pause(&timer_recalc_ms);
 	delays_Init(&timer_adc, ADC_CONVERSION_TIMEOUT_MS);
 	lpfilter_Set(&filter_adc, ADC_FILTER);
-	lpFilter_Fill(&filter_adc, 0xff);
+	lpfilter_Fill(&filter_adc, 0xff);
 	main_InitTimers();
 	main_FlashLedShort();
 	_delay_ms(400);
-	if (testbit(configuration_jumpers, JUMPER_SERVICE_MODE_bp)) {
+	if (testbit(configuration_jumpers, JUMPER_P3_SERVICE_MODE_bp)) {
 		state.channel_neutral = CHANNEL_PULSE_NEUTRAL;
 		state.channel_maximum = CHANNEL_PULSE_MAXIMUM + CHANNEL_PULSE_ZONE_NEUTRAL + CHANNEL_PULSE_ERROR;
 		state.channel_minimum = CHANNEL_PULSE_MINIMUM - CHANNEL_PULSE_ZONE_NEUTRAL - CHANNEL_PULSE_ERROR;
@@ -266,15 +274,15 @@ SKIP_CALIBRATION:
 	}
 	setbit(calibration_progres, CALIBRATION_READY_bp);
 READY_TO_RUN:
-	if (testbit(configuration_jumpers, JUMPER_SPEED_FILTER_bp)) {
+	if (testbit(configuration_jumpers, JUMPER_P1_SPEED_FILTER_bp)) {
 		lpfilter_Set(&filter_speed, state.custom_filter_length);
 	} else {
 		lpfilter_Set(&filter_speed, SPEED_FILTER_DEFAULT); 
 	}
 	state.rotation.speed = 0;
 	main_StartMotorTimer();
-	main_SetChannelConstants();	
-	lpFilter_Fill(&filter_speed, state.channel_neutral_x2);
+	main_CalculateChannelConstants();	
+	lpfilter_Fill(&filter_speed, state.channel_neutral_x2);
 	delays_Reset(&timer_signal_ms);
 	delays_Reset(&timer_recalc_ms);
 	main_SetLedOn();
@@ -294,21 +302,25 @@ READY_TO_RUN:
 			delays_Reset(&timer_recalc_ms);
 		}
 		// check terminal buffer
-		uart_SendOutputBuffer(&(terminal.output_buffer));
+		terminal_SendOutBuffer(&cbuffer);
 		if (terminal.change_to_write) main_SaveSetup();
-		if (terminal.input_is_full) uart_DropInputBuffer(&terminal);
+		if (terminal.input_is_full) terminal_DropInputBuffer(&terminal);
 		if (terminal_FindNewLine(&terminal, &command_length)) terminal_ParseCommand(&terminal, command_length);
 		// set rotation
-		if (!testbit(configuration_jumpers, JUMPER_SERVICE_MODE_bp)) main_SetMotorSpeedPWM(&state.rotation);
+		if (!testbit(configuration_jumpers, JUMPER_P3_SERVICE_MODE_bp)) main_SetMotorSpeedPWM(&state.rotation);
 		// check state
 		if (delays_Check(&timer_adc)) setbit(state.errors, ERROR_ADC_TIMEOUT_bp);
 	    main_CheckBattery();
     }
 }
 
+#if (defined(__AVR_ATmega8__))
 ISR(USART_RXC_vect)
+#elif (defined(__AVR_ATmega88A__) || defined(__AVR_ATmega88PA__) || defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+ISR(USART_RX_vect)
+#endif
 {
-	uart_InterruptHandler(&terminal);
+	terminal_InterruptHandler(&terminal);
 }
 
 ISR(TIMER0_OVF_vect)
@@ -347,15 +359,6 @@ void main_InitSetup(void)
 	state.speed_limit = eeprom_read_byte(&EEMEM_speed_limit);
 }
 
-void main_InitInfo(void)
-{
-	char *dest = device_info;
-	const char *src = DEVICE_INFO;
-	for (int i = 0; i < DEVICE_INFO_SIZE; i++) {
-		*dest++ = (char)pgm_read_byte(src++);
-	}
-}
-
 void main_InitTimers(void)
 {
 	main_InitPulseTimer();
@@ -367,14 +370,22 @@ void main_InitPulseTimer(void)
 {
 	// Timer1 (16-bit)
 	TCCR1B &= ~((1 << CS12) | (1 << CS11) | (1 << CS10));
+#if (defined(__AVR_ATmega8__))
 	TIFR |= (1 << TOV1);
+#elif (defined(__AVR_ATmega88A__) || defined(__AVR_ATmega88PA__) || defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+	TIFR1 |= (1 << TOV1);
+#endif
 }
 
 void main_StartPulseTimer(void)
 {
 	TCNT1H = 0;
 	TCNT1L = 0;
+#if (defined(__AVR_ATmega8__))
 	TIFR |= (1 << TOV1);
+#elif (defined(__AVR_ATmega88A__) || defined(__AVR_ATmega88PA__) || defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+	TIFR1 |= (1 << TOV1);
+#endif
 	TCCR1B |= (1 << CS11) | (1 << CS10);
 }
 
@@ -397,20 +408,33 @@ uint16_t main_ReadPulseTimer(void)
 
 bool main_IsPulseTimerOverload(void)
 {
+#if (defined(__AVR_ATmega8__))
 	return (TIFR >> TOV1) & 0x01;
+#elif (defined(__AVR_ATmega88A__) || defined(__AVR_ATmega88PA__) || defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+	return (TIFR1 >> TOV1) & 0x01;
+#endif
 }
 
 void main_InitMotorTimer(void)
 {
 	// Timer2 (8-bit)
+#if (defined(__AVR_ATmega8__))
 	TCCR2 &= ~((1 << CS22) | (1 << CS21) | (1 << CS20));
 	TIFR |= (1 << TOV2) | (1 << OCF2);
+#elif (defined(__AVR_ATmega88A__) || defined(__AVR_ATmega88PA__) || defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+	TCCR2B &= ~((1 << CS22) | (1 << CS21) | (1 << CS20));
+	TIFR2 |= (1 << TOV2);// | (1 << OCF2A);
+#endif
 }
 
 void main_StartMotorTimer(void)
 {
  	TCNT2 = 0;
+#if (defined(__AVR_ATmega8__))
  	TCCR2 |= (1 << CS22);
+#elif (defined(__AVR_ATmega88A__) || defined(__AVR_ATmega88PA__) || defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+ 	TCCR2B |= (1 << CS22);
+#endif
 }
 
 uint8_t main_ReadMotorTimer(void)
@@ -420,8 +444,13 @@ uint8_t main_ReadMotorTimer(void)
 
 void main_InitCommonTimer(void)
 {
+#if (defined(__AVR_ATmega8__))
 	TIMSK |= (1 << TOIE0);
 	TCCR0 = (1 << CS02);
+#elif (defined(__AVR_ATmega88A__) || defined(__AVR_ATmega88PA__) || defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+	TIMSK0 |= (1 << TOIE0);
+	TCCR0B = (1 << CS02);
+#endif
 }
 
 void main_InitADC(void)
@@ -430,7 +459,12 @@ void main_InitADC(void)
 	ADMUX |= CONFIG_BAT_PORTC_PIN;
 	ADMUX |= (1 << ADLAR);									// ADC Left Adjust Result
 	ADCSRA |= (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0);	// ADC Prescaler Select Bits, /128
+#if (defined(__AVR_ATmega8__))
 	ADCSRA |= (1 << ADFR);									// ADC Free Running Select
+#elif (defined(__AVR_ATmega88A__) || defined(__AVR_ATmega88PA__) || defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+	ADCSRA |= (1 << ADATE);									// ADC Auto Trigger Enable
+	ADCSRB = 0x00;											// ADC Free Running Select
+#endif
 	ADCSRA |= (1 << ADEN);									// ADC Enable
 	ADCSRA |= (1 << ADSC);									// ADC Start Conversion
 }
@@ -641,7 +675,7 @@ void main_ApplySpeedCurve(uint8_t *speed)
 	*speed = curve[*speed];
 }
 
-void main_SetChannelConstants(void)
+void main_CalculateChannelConstants(void)
 {
 	state.channel_move_maximum = state.channel_maximum - state.channel_neutral - CHANNEL_PULSE_ZONE_NEUTRAL - CHANNEL_PULSE_ZONE_EXTREMUM;
 	state.channel_move_minimum = state.channel_neutral - state.channel_minimum - CHANNEL_PULSE_ZONE_NEUTRAL - CHANNEL_PULSE_ZONE_EXTREMUM;
@@ -649,7 +683,6 @@ void main_SetChannelConstants(void)
 	state.zone_neutral = CHANNEL_PULSE_ZONE_NEUTRAL;
 	state.zone_neutral = (state.zone_neutral * 0x1fe) / (state.channel_maximum - state.channel_minimum);
 	state.zone_neutral = (state.zone_neutral * (state.channel_maximum - state.channel_minimum)) / (state.channel_move_minimum + state.channel_move_maximum);
-
 }
 
 void main_RecalculateSpeed(DCROTATION_t *rotation, uint16_t pulse_length)
@@ -673,7 +706,7 @@ void main_RecalculateSpeed(DCROTATION_t *rotation, uint16_t pulse_length)
 	if (pulse_filtered > SPEED_MAX) pulse_filtered = SPEED_MAX;
 	uint8_t result = (uint8_t)pulse_filtered;
 	// apply curve
-	if (testbit(configuration_jumpers, JUMPER_SPEED_CURVE_bp)) {
+	if (testbit(configuration_jumpers, JUMPER_P2_SPEED_CURVE_bp)) {
 		main_ApplySpeedCurve(&result);
 	}
 	(*rotation).speed = result;
@@ -699,9 +732,9 @@ void main_InitExpCurve(void)
 
 void main_ReadConfigurationJumper(void)
 {
-	if (!(READ_CFG1)) setbit(configuration_jumpers, JUMPER_SPEED_FILTER_bp);
-	if (!(READ_CFG2)) setbit(configuration_jumpers, JUMPER_SPEED_CURVE_bp);
-	if (!(READ_CFG3)) setbit(configuration_jumpers, JUMPER_SERVICE_MODE_bp);
+	if (!(READ_CFG1)) setbit(configuration_jumpers, JUMPER_P1_SPEED_FILTER_bp);
+	if (!(READ_CFG2)) setbit(configuration_jumpers, JUMPER_P2_SPEED_CURVE_bp);
+	if (!(READ_CFG3)) setbit(configuration_jumpers, JUMPER_P3_SERVICE_MODE_bp);
 }
 
 void main_SaveSetup(void)
