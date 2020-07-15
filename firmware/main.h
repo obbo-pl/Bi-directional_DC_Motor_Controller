@@ -22,44 +22,6 @@
 #include "macro.h"
 
 
-// STATUS LED port
-#define OUT_STATUS_LED				(glue2(DDR, CONFIG_LEDR_PORT) |= (1 << glue3(DD, CONFIG_LEDR_PORT, CONFIG_LEDR_PIN)))
-#define SET_STATUS_LED				(glue2(PORT, CONFIG_LEDR_PORT) |= (1 << glue3(P, CONFIG_LEDR_PORT, CONFIG_LEDR_PIN)))
-#define CLR_STATUS_LED				(glue2(PORT, CONFIG_LEDR_PORT) &= ~(1 << glue3(P, CONFIG_LEDR_PORT, CONFIG_LEDR_PIN)))
-
-
-// I/O port for motor bridge
-#define OUT_DIR_L					(glue2(DDR, CONFIG_DIR_L_PORT) |= (1 << glue3(DD, CONFIG_DIR_L_PORT, CONFIG_DIR_L_PIN)))
-#define SET_DIR_L					(glue2(PORT, CONFIG_DIR_L_PORT) |= (1 << glue3(P, CONFIG_DIR_L_PORT, CONFIG_DIR_L_PIN)))
-#define CLR_DIR_L					(glue2(PORT, CONFIG_DIR_L_PORT) &= ~(1 << glue3(P, CONFIG_DIR_L_PORT, CONFIG_DIR_L_PIN)))
-
-#define OUT_PULS_L					(glue2(DDR, CONFIG_PULS_L_PORT) |= (1 << glue3(DD, CONFIG_PULS_L_PORT, CONFIG_PULS_L_PIN)))
-#define SET_PULS_L					(glue2(PORT, CONFIG_PULS_L_PORT) |= (1 << glue3(P, CONFIG_PULS_L_PORT, CONFIG_PULS_L_PIN)))
-#define CLR_PULS_L					(glue2(PORT, CONFIG_PULS_L_PORT) &= ~(1 << glue3(P, CONFIG_PULS_L_PORT, CONFIG_PULS_L_PIN)))
-
-#define OUT_DIR_R					(glue2(DDR, CONFIG_DIR_R_PORT) |= (1 << glue3(DD, CONFIG_DIR_R_PORT, CONFIG_DIR_R_PIN)))
-#define SET_DIR_R					(glue2(PORT, CONFIG_DIR_R_PORT) |= (1 << glue3(P, CONFIG_DIR_R_PORT, CONFIG_DIR_R_PIN)))
-#define CLR_DIR_R					(glue2(PORT, CONFIG_DIR_R_PORT) &= ~(1 << glue3(P, CONFIG_DIR_R_PORT, CONFIG_DIR_R_PIN)))
-
-#define OUT_PULS_R					(glue2(DDR, CONFIG_PULS_R_PORT) |= (1 << glue3(DD, CONFIG_PULS_R_PORT, CONFIG_PULS_R_PIN)))
-#define SET_PULS_R					(glue2(PORT, CONFIG_PULS_R_PORT) |= (1 << glue3(P, CONFIG_PULS_R_PORT, CONFIG_PULS_R_PIN)))
-#define CLR_PULS_R					(glue2(PORT, CONFIG_PULS_R_PORT) &= ~(1 << glue3(P, CONFIG_PULS_R_PORT, CONFIG_PULS_R_PIN)))
-
-
-// Configuration pinhead (CFG1 - CFG3)
-#define PULL_CFG1					(glue2(PORT, CONFIG_CFG1_PORT) |= (1 << glue3(P, CONFIG_CFG1_PORT, CONFIG_CFG1_PIN)))
-#define READ_CFG1					((glue2(PIN, CONFIG_CFG1_PORT) >> glue3(P, CONFIG_CFG1_PORT, CONFIG_CFG1_PIN)) & 0x01)
-
-#define PULL_CFG2					(glue2(PORT, CONFIG_CFG2_PORT) |= (1 << glue3(P, CONFIG_CFG2_PORT, CONFIG_CFG2_PIN)))
-#define READ_CFG2					((glue2(PIN, CONFIG_CFG2_PORT) >> glue3(P, CONFIG_CFG2_PORT, CONFIG_CFG2_PIN)) & 0x01)
-
-#define PULL_CFG3					(glue2(PORT, CONFIG_CFG3_PORT) |= (1 << glue3(P, CONFIG_CFG3_PORT, CONFIG_CFG3_PIN)))
-#define READ_CFG3					((glue2(PIN, CONFIG_CFG3_PORT) >> glue3(P, CONFIG_CFG3_PORT, CONFIG_CFG3_PIN)) & 0x01)
-
-
-// Channel signal (CH1)
-#define PULL_CHANNEL1				(glue2(PORT, CONFIG_CH1_PORT) |= (1 << glue3(P, CONFIG_CH1_PORT, CONFIG_CH1_PIN)))
-#define READ_CHANNEL1				((glue2(PIN, CONFIG_CH1_PORT) >> glue3(P, CONFIG_CH1_PORT, CONFIG_CH1_PIN)) & 0x01)
 
 #define TIMER_COMMON_OVF_MS			(4)
 #define RECALCULATE_INTERVAL_MS		(20)

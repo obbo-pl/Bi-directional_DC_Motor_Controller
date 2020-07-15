@@ -34,6 +34,13 @@
 // ADC - checks battery voltage
 // UART - serial communication (9600) for advanced configuration
 
+/*
+				Program Memory Usage 	:	8328 bytes   25,4 % Full
+				Data Memory Usage 		:	655 bytes   32,0 % Full
+				EEPROM Memory Usage 	:	505 bytes   49,3 % Full
+*/
+
+
 
 #define VERSION_MAJOR				"1"
 #define VERSION_MINOR				"0"
@@ -332,23 +339,23 @@ ISR(TIMER0_OVF_vect)
 
 void main_InitIO(void)
 {
-	OUT_STATUS_LED;
-	CLR_STATUS_LED;
+	SET_PIN_LEVEL_LOW(CONFIG_LED);
+	SET_PIN_AS_OUT(CONFIG_LED);
 
-	PULL_CFG1;
-	PULL_CFG2;
-	PULL_CFG3;
+	SET_PIN_PULLUP(CONFIG_P1);
+	SET_PIN_PULLUP(CONFIG_P2);
+	SET_PIN_PULLUP(CONFIG_P3);
+	
+	SET_PIN_LEVEL_LOW(CONFIG_DIR_L);
+	SET_PIN_AS_OUT(CONFIG_DIR_L);
+	SET_PIN_LEVEL_LOW(CONFIG_DIR_R);
+	SET_PIN_AS_OUT(CONFIG_DIR_R);
+	SET_PIN_LEVEL_LOW(CONFIG_PULS_L);
+	SET_PIN_AS_OUT(CONFIG_PULS_L);
+	SET_PIN_LEVEL_LOW(CONFIG_PULS_R);
+	SET_PIN_AS_OUT(CONFIG_PULS_R);
 
-	CLR_DIR_L;
-	OUT_DIR_L;
-	CLR_DIR_R;
-	OUT_DIR_R;
-	CLR_PULS_L;
-	OUT_PULS_L;
-	CLR_PULS_R;
-	OUT_PULS_R;
-
-	PULL_CHANNEL1;
+	SET_PIN_PULLUP(CONFIG_CH1);
 }
 
 void main_InitSetup(void)
@@ -423,7 +430,7 @@ void main_InitMotorTimer(void)
 	TIFR |= (1 << TOV2) | (1 << OCF2);
 #elif (defined(__AVR_ATmega88A__) || defined(__AVR_ATmega88PA__) || defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
 	TCCR2B &= ~((1 << CS22) | (1 << CS21) | (1 << CS20));
-	TIFR2 |= (1 << TOV2);// | (1 << OCF2A);
+	TIFR2 |= (1 << TOV2);
 #endif
 }
 
@@ -487,7 +494,7 @@ bool main_CheckChannelInput(uint16_t *val, bool verify)
 	// then should count from 250 to 500 tick per pulse
 	// returns "true" and updates "value" when a new pulse occurs
 	bool changed = false;
-	uint8_t channel_level = READ_CHANNEL1;
+	uint8_t channel_level = READ_PIN(CONFIG_CH1);
 	if (state.channel_level_prev != channel_level) {
 		if (channel_level == CHANNEL_LEVEL_ACTIVE) {
 		    main_StartPulseTimer();
@@ -545,12 +552,12 @@ void main_CheckBattery(void)
 
 void main_SetLedOff(void)
 {
-	CLR_STATUS_LED;
+	SET_PIN_LEVEL_LOW(CONFIG_LED);
 }
 
 void main_SetLedOn(void)
 {
-	SET_STATUS_LED;
+	SET_PIN_LEVEL_HIGH(CONFIG_LED);
 };
 	
 void main_FlashLedShort(void)
@@ -588,10 +595,10 @@ void main_SetMotorOnLeft(uint8_t *speed)
 		return;
 	}
 	motor_running_left = true;
-	CLR_DIR_R;
-	CLR_PULS_R;
-	SET_DIR_L;
-	SET_PULS_L;
+	SET_PIN_LEVEL_LOW(CONFIG_DIR_R);
+	SET_PIN_LEVEL_LOW(CONFIG_PULS_R);
+	SET_PIN_LEVEL_HIGH(CONFIG_DIR_L);
+	SET_PIN_LEVEL_HIGH(CONFIG_PULS_L);
 }
 
 void main_SetMotorOnRight(uint8_t *speed)
@@ -601,10 +608,10 @@ void main_SetMotorOnRight(uint8_t *speed)
 		return;
 	}
 	motor_running_right = true;
-	CLR_DIR_L;
-	CLR_PULS_L;
-	SET_DIR_R;
-	SET_PULS_R;
+	SET_PIN_LEVEL_LOW(CONFIG_DIR_L);
+	SET_PIN_LEVEL_LOW(CONFIG_PULS_L);
+	SET_PIN_LEVEL_HIGH(CONFIG_DIR_R);
+	SET_PIN_LEVEL_HIGH(CONFIG_PULS_R);
 }
 
 void main_SetMotorToChangeDirection(uint8_t *speed)
@@ -617,10 +624,10 @@ void main_SetMotorToChangeDirection(uint8_t *speed)
 
 void main_SetMotorOff(void)
 {
-	CLR_PULS_L;
-	CLR_PULS_R;
-	CLR_DIR_L; 
-	CLR_DIR_R;
+	SET_PIN_LEVEL_LOW(CONFIG_PULS_L);
+	SET_PIN_LEVEL_LOW(CONFIG_PULS_R);
+	SET_PIN_LEVEL_LOW(CONFIG_DIR_L); 
+	SET_PIN_LEVEL_LOW(CONFIG_DIR_R);
 }
 
 void main_SetMotorSpeedPWM(DCROTATION_t *rotation)
@@ -732,9 +739,9 @@ void main_InitExpCurve(void)
 
 void main_ReadConfigurationJumper(void)
 {
-	if (!(READ_CFG1)) setbit(configuration_jumpers, JUMPER_P1_SPEED_FILTER_bp);
-	if (!(READ_CFG2)) setbit(configuration_jumpers, JUMPER_P2_SPEED_CURVE_bp);
-	if (!(READ_CFG3)) setbit(configuration_jumpers, JUMPER_P3_SERVICE_MODE_bp);
+	if (!(READ_PIN(CONFIG_P1))) setbit(configuration_jumpers, JUMPER_P1_SPEED_FILTER_bp);
+	if (!(READ_PIN(CONFIG_P2))) setbit(configuration_jumpers, JUMPER_P2_SPEED_CURVE_bp);
+	if (!(READ_PIN(CONFIG_P3))) setbit(configuration_jumpers, JUMPER_P3_SERVICE_MODE_bp);
 }
 
 void main_SaveSetup(void)
