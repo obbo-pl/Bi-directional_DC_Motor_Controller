@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <avr/eeprom.h>
 #include "terminal_commands.h"
+#include "adconversion.h"
 
 
 
@@ -189,7 +190,11 @@ void command_BatteryVoltageCut(DCTERMINAL_t *terminal)
 {
 	if (terminal->command_option[0] == TERMINAL_SPACE) {
 		int temp = atoi(terminal->command_option);
+#ifdef ADCONVERSION_8_BIT_PRECISION
 		if ((temp > 0) && (temp <= 255)) {
+#else
+		if ((temp > 0) && (temp <= 1023)) {
+#endif
 			dc_state->battery_cut = temp;
 			terminal->change_to_write = true;
 		} else {

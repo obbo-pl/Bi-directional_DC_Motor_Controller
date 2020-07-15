@@ -14,6 +14,7 @@
 #ifndef TYPES_H_
 #define TYPES_H_
 
+#include "adconversion.h"
 
 typedef struct dc_rotation {
 	uint8_t speed;
@@ -28,9 +29,14 @@ typedef struct dc_controller {
 	uint16_t channel_prev;
 	uint8_t channel_level_prev;
 	DCROTATION_t rotation;
+#ifdef ADCONVERSION_8_BIT_PRECISION
 	uint8_t battery_voltage;
-	uint8_t battery_divider;
 	uint8_t battery_cut;
+#else
+	uint16_t battery_voltage;
+	uint16_t battery_cut;
+#endif
+	uint8_t battery_divider;
 	uint8_t zone_neutral;
 	uint16_t channel_neutral;
 	uint16_t channel_maximum;

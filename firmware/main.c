@@ -25,6 +25,7 @@
 #include "usart.h"
 #include "terminal.h"
 #include "terminal_commands.h"
+#include "adconversion.h"
 
 
 // resource:
@@ -33,12 +34,6 @@
 // timer2 - motor PWM
 // ADC - checks battery voltage
 // UART - serial communication (9600) for advanced configuration
-
-/*
-				Program Memory Usage 	:	8328 bytes   25,4 % Full
-				Data Memory Usage 		:	655 bytes   32,0 % Full
-				EEPROM Memory Usage 	:	505 bytes   49,3 % Full
-*/
 
 
 
@@ -66,7 +61,11 @@ uint8_t EEMEM EEMEM_curve[256] = {0x00, 0x06, 0x0c, 0x12, 0x12, 0x12, 0x12, 0x12
 };
 								
 uint8_t curve[256];
+#ifdef ADCONVERSION_8_BIT_PRECISION
 uint8_t EEMEM EEMEM_battery_cut = 0xaa;
+#else
+uint16_t EEMEM EEMEM_battery_cut = 0x01aa;
+#endif
 uint8_t EEMEM EEMEM_battery_divider = 0x12; 
 uint8_t EEMEM EEMEM_custom_filter_length = 0x05;
 uint8_t EEMEM EEMEM_speed_limit = 0x80;
@@ -115,8 +114,6 @@ void main_InitMotorTimer(void);
 void main_StartMotorTimer(void);
 uint8_t main_ReadMotorTimer(void);
 void main_InitCommonTimer(void);
-void main_InitADC(void);
-bool main_ReadADC(uint8_t *val);
 void main_InitExpCurve(void);
 bool main_CheckChannelInput(uint16_t *val, bool verify);
 bool main_VerifyChannelValue(uint16_t *val);
@@ -155,7 +152,7 @@ int main(void)
 	main_InitIO();
 	main_InitExpCurve();
 	main_ReadConfigurationJumper();
-	main_InitADC();
+	adc_Init(glue2(ADCONVERSION_MUX_ADC,CONFIG_BAT_PORTC_PIN));
 	main_InitSetup();
 
 	usart_Init();
@@ -173,7 +170,11 @@ int main(void)
 	delays_Pause(&timer_recalc_ms);
 	delays_Init(&timer_adc, ADC_CONVERSION_TIMEOUT_MS);
 	lpfilter_Set(&filter_adc, ADC_FILTER);
-	lpfilter_Fill(&filter_adc, 0xff);
+#ifdef ADCONVERSION_8_BIT_PRECISION	
+	lpfilter_Fill(&filter_adc, 0x00ff);
+#else
+	lpfilter_Fill(&filter_adc, 0x03ff);
+#endif
 	main_InitTimers();
 	main_FlashLedShort();
 	_delay_ms(400);
@@ -360,7 +361,11 @@ void main_InitIO(void)
 
 void main_InitSetup(void)
 {
+#ifdef ADCONVERSION_8_BIT_PRECISION
 	state.battery_cut = eeprom_read_byte(&EEMEM_battery_cut);
+#else
+	state.battery_cut = eeprom_read_word(&EEMEM_battery_cut);
+#endif
 	state.battery_divider = eeprom_read_byte(&EEMEM_battery_divider);
 	state.custom_filter_length = eeprom_read_byte(&EEMEM_custom_filter_length);
 	state.speed_limit = eeprom_read_byte(&EEMEM_speed_limit);
@@ -460,33 +465,6 @@ void main_InitCommonTimer(void)
 #endif
 }
 
-void main_InitADC(void)
-{
-	ADMUX = (1 << REFS0) | (1 << REFS1);					// Internal 2.56V Voltage Reference with external capacitor at AREF pin
-	ADMUX |= CONFIG_BAT_PORTC_PIN;
-	ADMUX |= (1 << ADLAR);									// ADC Left Adjust Result
-	ADCSRA |= (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0);	// ADC Prescaler Select Bits, /128
-#if (defined(__AVR_ATmega8__))
-	ADCSRA |= (1 << ADFR);									// ADC Free Running Select
-#elif (defined(__AVR_ATmega88A__) || defined(__AVR_ATmega88PA__) || defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
-	ADCSRA |= (1 << ADATE);									// ADC Auto Trigger Enable
-	ADCSRB = 0x00;											// ADC Free Running Select
-#endif
-	ADCSRA |= (1 << ADEN);									// ADC Enable
-	ADCSRA |= (1 << ADSC);									// ADC Start Conversion
-}
-
- bool main_ReadADC(uint8_t *val)
-{
-	bool result = false;
-	if ((ADCSRA >> ADIF) & 0x01) {
-		*val = ADCH;
-		ADCSRA |= (1 << ADIF);
-		result = true;
-	}
-	return result; 
-}
-
 bool main_CheckChannelInput(uint16_t *val, bool verify)
 {
 	// check the channel pulse length, it should be between 1ms and 2ms 
@@ -539,8 +517,12 @@ void main_UpdateRecovery(int recovery)
 
 void main_CheckBattery(void)
 {
+#ifdef ADCONVERSION_8_BIT_PRECISION
 	uint8_t bat;
-	if (main_ReadADC(&bat)) {
+#else
+	uint16_t bat;
+#endif
+	if (adc_Read(&bat)) {
 		delays_Reset(&timer_adc);
 		state.battery_voltage = lpfilter_Filter(&filter_adc, bat);
 		if (state.battery_voltage < state.battery_cut) {
@@ -747,7 +729,11 @@ void main_ReadConfigurationJumper(void)
 void main_SaveSetup(void)
 {
 	terminal.change_to_write = false;
+#ifdef ADCONVERSION_8_BIT_PRECISION
 	eeprom_write_byte(&EEMEM_battery_cut, state.battery_cut);
+#else
+	eeprom_write_word(&EEMEM_battery_cut, state.battery_cut);
+#endif
 	eeprom_write_byte(&EEMEM_battery_divider, state.battery_divider);
 	eeprom_write_byte(&EEMEM_custom_filter_length, state.custom_filter_length);
 	eeprom_write_byte(&EEMEM_speed_limit, state.speed_limit);
