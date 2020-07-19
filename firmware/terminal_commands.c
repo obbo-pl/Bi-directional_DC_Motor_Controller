@@ -13,7 +13,6 @@
 #include <stdlib.h>
 #include <avr/eeprom.h>
 #include "terminal_commands.h"
-#include "adconversion.h"
 
 
 
@@ -28,10 +27,11 @@ void command_ShowChannelRange(DCTERMINAL_t *terminal);
 void command_BatteryVoltageValue(DCTERMINAL_t *terminal);
 void command_BatteryVoltageDivider(DCTERMINAL_t *terminal);
 void command_BatteryVoltageCut(DCTERMINAL_t *terminal);
+void command_MotorBrakeEnabled(DCTERMINAL_t *terminal);
 void command_BatterySpeedLimit(DCTERMINAL_t *terminal);
 void command_SpeedFilterCustom(DCTERMINAL_t *terminal);
 
-#define TERMINAL_BASE_COMMANDS_COUNT		12
+#define TERMINAL_BASE_COMMANDS_COUNT		13
 
 #define TERMINAL_COMMANDS_COUNT			(TERMINAL_BASE_COMMANDS_COUNT)
 
@@ -47,6 +47,7 @@ TERMINAL_COMMAND_t cabell_commands[TERMINAL_COMMANDS_COUNT] = {
 	{ .pattern = "@BVD", .callback = command_BatteryVoltageDivider,},
 	{ .pattern = "@BVC", .callback = command_BatteryVoltageCut,},
 	{ .pattern = "@BSL", .callback = command_BatterySpeedLimit,},
+	{ .pattern = "@MBE", .callback = command_MotorBrakeEnabled,},
 	{ .pattern = "@SFC", .callback = command_SpeedFilterCustom,},
 };
 
@@ -113,13 +114,31 @@ void command_BatteryVoltageDivider(DCTERMINAL_t *terminal)
 		if ((temp > 0) && (temp <= 100)) {
 			dc_state->battery_divider = temp;
 			terminal->change_to_write = true;
-			} else {
+		} else {
 			terminal_SendBadArgument(terminal->output_buffer);
 		}
 	}
 	cbuffer_AppendEEString(terminal->output_buffer, eeprom_terminal_message_002);
 	char buffer [4];
 	itoa(dc_state->battery_divider, buffer, 10);
+	cbuffer_AppendString(terminal->output_buffer, buffer);
+	terminal_SendNL(terminal->output_buffer, false);
+}
+
+void command_MotorBrakeEnabled(DCTERMINAL_t *terminal)
+{
+	if (terminal->command_option[0] == TERMINAL_SPACE) {
+		int temp = atoi(terminal->command_option);
+		if (temp <= 1) {
+			dc_state->brake_enabled = temp;
+			terminal->change_to_write = true;
+		} else {
+			terminal_SendBadArgument(terminal->output_buffer);
+		}
+	}
+	cbuffer_AppendString(terminal->output_buffer, "Brake enabled: ");
+	char buffer [4];
+	itoa(dc_state->brake_enabled, buffer, 10);
 	cbuffer_AppendString(terminal->output_buffer, buffer);
 	terminal_SendNL(terminal->output_buffer, false);
 }
@@ -239,7 +258,7 @@ void command_SpeedFilterCustom(DCTERMINAL_t *terminal)
 		if ((temp >= 2) && (temp <= 10)) {
 			dc_state->custom_filter_length = temp;
 			terminal->change_to_write = true;
-			} else {
+		} else {
 			terminal_SendBadArgument(terminal->output_buffer);
 		}
 	}

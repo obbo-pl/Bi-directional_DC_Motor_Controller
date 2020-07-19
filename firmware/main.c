@@ -43,21 +43,21 @@
 const char DEVICE_INFO[DEVICE_INFO_SIZE]	PROGMEM = "DC " VERSION_MAJOR "." VERSION_MINOR " (build: " __DATE__ " " __TIME__ ")\n\r";
 
 uint8_t EEMEM EEMEM_curve[256] = {0x00, 0x06, 0x0c, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x12, 0x13,
-								0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x14, 0x14, 0x14, 0x14, 0x15, 0x15, 0x15, 0x15, 0x16, 0x16,
-								0x16, 0x16, 0x17, 0x17, 0x17, 0x18, 0x18, 0x18, 0x19, 0x19, 0x19, 0x1a, 0x1a, 0x1b, 0x1b, 0x1b,
-								0x1c, 0x1c, 0x1d, 0x1d, 0x1e, 0x1e, 0x1e, 0x1f, 0x1f, 0x20, 0x20, 0x21, 0x21, 0x22, 0x23, 0x23,
-								0x24, 0x24, 0x25, 0x25, 0x26, 0x27, 0x27, 0x28, 0x28, 0x29, 0x2a, 0x2a, 0x2b, 0x2c, 0x2c, 0x2d,
-								0x2e, 0x2e, 0x2f, 0x30, 0x30, 0x31, 0x32, 0x33, 0x33, 0x34, 0x35, 0x36, 0x37, 0x37, 0x38, 0x39,
-								0x3a, 0x3b, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
-								0x48, 0x49, 0x4a, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56,
-								0x57, 0x58, 0x59, 0x5a, 0x5c, 0x5d, 0x5e, 0x5f, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x68,
-								0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x77, 0x78, 0x79, 0x7a,
-								0x7b, 0x7d, 0x7e, 0x7f, 0x80, 0x82, 0x83, 0x84, 0x85, 0x87, 0x88, 0x89, 0x8a, 0x8c, 0x8d, 0x8e,
-								0x90, 0x91, 0x92, 0x93, 0x95, 0x96, 0x97, 0x99, 0x9a, 0x9b, 0x9d, 0x9e, 0x9f, 0xa1, 0xa2, 0xa3,
-								0xa5, 0xa6, 0xa7, 0xa9, 0xaa, 0xac, 0xad, 0xae, 0xb0, 0xb1, 0xb2, 0xb4, 0xb5, 0xb7, 0xb8, 0xb9,
-								0xbb, 0xbc, 0xbe, 0xbf, 0xc0, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcc, 0xcd, 0xcf, 0xd0,
-								0xd1, 0xd3, 0xd4, 0xd6, 0xd7, 0xd9, 0xda, 0xdc, 0xdd, 0xde, 0xe0, 0xe1, 0xe3, 0xe4, 0xe6, 0xe7,
-								0xe9, 0xea, 0xec, 0xed, 0xee, 0xf0, 0xf1, 0xf3, 0xf4, 0xf6, 0xf7, 0xf9, 0xfa, 0xfc, 0xfd, 0xff
+				  0x13, 0x13, 0x13, 0x13, 0x13, 0x13, 0x14, 0x14, 0x14, 0x14, 0x15, 0x15, 0x15, 0x15, 0x16, 0x16,
+				  0x16, 0x16, 0x17, 0x17, 0x17, 0x18, 0x18, 0x18, 0x19, 0x19, 0x19, 0x1a, 0x1a, 0x1b, 0x1b, 0x1b,
+				  0x1c, 0x1c, 0x1d, 0x1d, 0x1e, 0x1e, 0x1e, 0x1f, 0x1f, 0x20, 0x20, 0x21, 0x21, 0x22, 0x23, 0x23,
+				  0x24, 0x24, 0x25, 0x25, 0x26, 0x27, 0x27, 0x28, 0x28, 0x29, 0x2a, 0x2a, 0x2b, 0x2c, 0x2c, 0x2d,
+				  0x2e, 0x2e, 0x2f, 0x30, 0x30, 0x31, 0x32, 0x33, 0x33, 0x34, 0x35, 0x36, 0x37, 0x37, 0x38, 0x39,
+				  0x3a, 0x3b, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f, 0x40, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47,
+				  0x48, 0x49, 0x4a, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e, 0x4f, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56,
+				  0x57, 0x58, 0x59, 0x5a, 0x5c, 0x5d, 0x5e, 0x5f, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x68,
+				  0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x77, 0x78, 0x79, 0x7a,
+				  0x7b, 0x7d, 0x7e, 0x7f, 0x80, 0x82, 0x83, 0x84, 0x85, 0x87, 0x88, 0x89, 0x8a, 0x8c, 0x8d, 0x8e,
+				  0x90, 0x91, 0x92, 0x93, 0x95, 0x96, 0x97, 0x99, 0x9a, 0x9b, 0x9d, 0x9e, 0x9f, 0xa1, 0xa2, 0xa3,
+				  0xa5, 0xa6, 0xa7, 0xa9, 0xaa, 0xac, 0xad, 0xae, 0xb0, 0xb1, 0xb2, 0xb4, 0xb5, 0xb7, 0xb8, 0xb9,
+				  0xbb, 0xbc, 0xbe, 0xbf, 0xc0, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcc, 0xcd, 0xcf, 0xd0,
+				  0xd1, 0xd3, 0xd4, 0xd6, 0xd7, 0xd9, 0xda, 0xdc, 0xdd, 0xde, 0xe0, 0xe1, 0xe3, 0xe4, 0xe6, 0xe7,
+				  0xe9, 0xea, 0xec, 0xed, 0xee, 0xf0, 0xf1, 0xf3, 0xf4, 0xf6, 0xf7, 0xf9, 0xfa, 0xfc, 0xfd, 0xff
 };
 								
 uint8_t curve[256];
@@ -67,13 +67,15 @@ uint8_t EEMEM EEMEM_battery_cut = 0xaa;
 uint16_t EEMEM EEMEM_battery_cut = 0x01aa;
 #endif
 uint8_t EEMEM EEMEM_battery_divider = 0x12; 
-uint8_t EEMEM EEMEM_custom_filter_length = 0x05;
+uint8_t EEMEM EEMEM_custom_filter_length = 0x04;
 uint8_t EEMEM EEMEM_speed_limit = 0x80;
 
 uint16_t EEMEM EEMEM_channel_minimum = 250;
 uint16_t EEMEM EEMEM_channel_neutral = 375;
 uint16_t EEMEM EEMEM_channel_maximum = 500;
 uint8_t EEMEM EEMEM_channel_saved = 0x00;
+
+uint8_t EEMEM EEMEM_brake_enabled = 0x00;
 
  
 uint8_t configuration_jumpers = 0x00;
@@ -85,15 +87,16 @@ LPFu16_t filter_adc;
 uint8_t calibration_progres = 0;
 
 DCCON_t state = {.errors = 0,
-				 .rotation.speed = 0,
-				 .rotation.dir = MOTOR_DIRECTION_RIGHT,
-				 .channel_neutral = 0x0000,
-				 .channel_maximum = 0x0000,
-				 .channel_minimum = 0xffff,
-				 .channel_move_maximum = 0,
-				 .channel_move_minimum = 0,
-				 .speed_max = SPEED_MAX,
-				 .device_info = DEVICE_INFO,
+		 .rotation.speed = 0,
+		 .rotation.dir = MOTOR_DIRECTION_RIGHT,
+		 .rotation.brake = false,
+		 .channel_neutral = 0x0000,
+		 .channel_maximum = 0x0000,
+		 .channel_minimum = 0xffff,
+		 .channel_move_maximum = 0,
+		 .channel_move_minimum = 0,
+		 .speed_max = SPEED_MAX,
+		 .device_info = DEVICE_INFO,
 };
 
 DELAY_t timer_adc;
@@ -125,11 +128,12 @@ void main_FlashLedLong(void);
 void main_SetLedOff(void);
 void main_SetLedOn(void);
 void main_ShowStatus(uint8_t status, uint8_t count);
-void main_InitSetup(void);
+void main_ReadSetup(void);
 void main_CalculateChannelConstants(void);
 void main_SetMotorOnLeft(uint8_t *speed);
 void main_SetMotorOnRight(uint8_t *speed);
 void main_SetMotorOff(void);
+void main_SetMotorBrake(void);
 void main_SetMotorToChangeDirection(uint8_t *speed);
 void main_SetMotorSpeedPWM(DCROTATION_t *rotation);
 bool main_IsMotorDirectionRight(uint8_t *direction);
@@ -153,7 +157,7 @@ int main(void)
 	main_InitExpCurve();
 	main_ReadConfigurationJumper();
 	adc_Init(glue2(ADCONVERSION_MUX_ADC,CONFIG_BAT_PORTC_PIN));
-	main_InitSetup();
+	main_ReadSetup();
 
 	usart_Init();
 	cbuffer_Init(&cbuffer);
@@ -296,7 +300,7 @@ READY_TO_RUN:
 	main_SetLedOn();
 	sei();
 	uint8_t command_length;
-    while (1) {
+	while (1) {
 		// check signal
 		main_CheckChannelInput(&(state.channel_value), true);
 		// fail-safe
@@ -318,8 +322,8 @@ READY_TO_RUN:
 		if (!testbit(configuration_jumpers, JUMPER_P3_SERVICE_MODE_bp)) main_SetMotorSpeedPWM(&state.rotation);
 		// check state
 		if (delays_Check(&timer_adc)) setbit(state.errors, ERROR_ADC_TIMEOUT_bp);
-	    main_CheckBattery();
-    }
+		main_CheckBattery();
+	}
 }
 
 #if (defined(__AVR_ATmega8__))
@@ -357,18 +361,6 @@ void main_InitIO(void)
 	SET_PIN_AS_OUT(CONFIG_PULS_R);
 
 	SET_PIN_PULLUP(CONFIG_CH1);
-}
-
-void main_InitSetup(void)
-{
-#ifdef ADCONVERSION_8_BIT_PRECISION
-	state.battery_cut = eeprom_read_byte(&EEMEM_battery_cut);
-#else
-	state.battery_cut = eeprom_read_word(&EEMEM_battery_cut);
-#endif
-	state.battery_divider = eeprom_read_byte(&EEMEM_battery_divider);
-	state.custom_filter_length = eeprom_read_byte(&EEMEM_custom_filter_length);
-	state.speed_limit = eeprom_read_byte(&EEMEM_speed_limit);
 }
 
 void main_InitTimers(void)
@@ -494,9 +486,9 @@ bool main_CheckChannelInput(uint16_t *val, bool verify)
 					main_UpdateRecovery(RECOVERY_DELAY_PL);
 				}
 			}
-	    }
+		}
 		state.channel_level_prev = channel_level;
-    }
+	}
 	return changed;
 }
 
@@ -576,9 +568,9 @@ void main_SetMotorOnLeft(uint8_t *speed)
 		main_SetMotorToChangeDirection(speed);
 		return;
 	}
-	motor_running_left = true;
 	SET_PIN_LEVEL_LOW(CONFIG_DIR_R);
 	SET_PIN_LEVEL_LOW(CONFIG_PULS_R);
+	motor_running_left = true;
 	SET_PIN_LEVEL_HIGH(CONFIG_DIR_L);
 	SET_PIN_LEVEL_HIGH(CONFIG_PULS_L);
 }
@@ -589,18 +581,18 @@ void main_SetMotorOnRight(uint8_t *speed)
 		main_SetMotorToChangeDirection(speed);
 		return;
 	}
-	motor_running_right = true;
 	SET_PIN_LEVEL_LOW(CONFIG_DIR_L);
 	SET_PIN_LEVEL_LOW(CONFIG_PULS_L);
+	motor_running_right = true;
 	SET_PIN_LEVEL_HIGH(CONFIG_DIR_R);
 	SET_PIN_LEVEL_HIGH(CONFIG_PULS_R);
 }
 
 void main_SetMotorToChangeDirection(uint8_t *speed)
 {
+	main_SetMotorOff();
 	motor_running_left = false;
 	motor_running_right = false;
-	main_SetMotorOff();
 	*speed = 0;
 }
 
@@ -612,26 +604,40 @@ void main_SetMotorOff(void)
 	SET_PIN_LEVEL_LOW(CONFIG_DIR_R);
 }
 
+void main_SetMotorBrake(void)
+{
+	SET_PIN_LEVEL_LOW(CONFIG_DIR_L);
+	SET_PIN_LEVEL_LOW(CONFIG_DIR_R);
+	SET_PIN_LEVEL_HIGH(CONFIG_PULS_L);
+	SET_PIN_LEVEL_HIGH(CONFIG_PULS_R);
+}
+
 void main_SetMotorSpeedPWM(DCROTATION_t *rotation)
 {
 	// prevent quick change of direction
- 	if (main_IsMotorDirectionRight(&((*rotation).dir)) && motor_running_left) {
-		main_SetMotorToChangeDirection(&((*rotation).speed));
+ 	if (main_IsMotorDirectionRight(&(rotation->dir)) && motor_running_left) {
+		main_SetMotorToChangeDirection(&(rotation->speed));
 		return;
 	}
-	if (main_IsMotorDirectionLeft(&((*rotation).dir)) && motor_running_right) {
-		main_SetMotorToChangeDirection(&((*rotation).speed));
+	if (main_IsMotorDirectionLeft(&(rotation->dir)) && motor_running_right) {
+		main_SetMotorToChangeDirection(&(rotation->speed));
 		return;
 	}
 	// reduce power consumption
-	main_ApplyReduceSpeed(&((*rotation).speed));
+	main_ApplyReduceSpeed(&(rotation->speed));
 	// set bridge I/O
-	if ((main_ReadMotorTimer() <= (*rotation).speed) && ((*rotation).speed > 0)) {
-		if (main_IsMotorDirectionRight(&((*rotation).dir))) {
-			main_SetMotorOnRight(&((*rotation).speed));
+	if (rotation->speed > 0) {
+		if (main_ReadMotorTimer() <= rotation->speed) {
+			if (main_IsMotorDirectionRight(&(rotation->dir))) {
+				main_SetMotorOnRight(&(rotation->speed));
+			} else {
+ 				main_SetMotorOnLeft(&(rotation->speed));
+			}
 		} else {
- 			main_SetMotorOnLeft(&((*rotation).speed));
+			main_SetMotorOff();
 		}
+	} else if (rotation->brake) {
+		main_SetMotorBrake();
 	} else {
 		main_SetMotorOff();
 	}
@@ -672,6 +678,7 @@ void main_CalculateChannelConstants(void)
 	state.zone_neutral = CHANNEL_PULSE_ZONE_NEUTRAL;
 	state.zone_neutral = (state.zone_neutral * 0x1fe) / (state.channel_maximum - state.channel_minimum);
 	state.zone_neutral = (state.zone_neutral * (state.channel_maximum - state.channel_minimum)) / (state.channel_move_minimum + state.channel_move_maximum);
+	state.zone_brake = (state.zone_neutral * CHANNEL_PULSE_ZONE_BRAKE) / CHANNEL_PULSE_ZONE_NEUTRAL; 
 }
 
 void main_RecalculateSpeed(DCROTATION_t *rotation, uint16_t pulse_length)
@@ -682,15 +689,19 @@ void main_RecalculateSpeed(DCROTATION_t *rotation, uint16_t pulse_length)
 	main_ApplySpeedFilter(&pulse_filtered, (pulse_length << 1));
 	// convert pulse length to motor direction and speed
 	if (pulse_filtered > state.channel_neutral_x2) {
-		(*rotation).dir = MOTOR_DIRECTION_RIGHT;
+		rotation->dir = MOTOR_DIRECTION_RIGHT;
 		pulse_filtered = pulse_filtered - state.channel_neutral_x2;
 		pulse_filtered = (pulse_filtered << 8) / state.channel_move_maximum;
 	} else {
-		(*rotation).dir = MOTOR_DIRECTION_LEFT;
+		rotation->dir = MOTOR_DIRECTION_LEFT;
 		pulse_filtered = state.channel_neutral_x2 - pulse_filtered;
 		pulse_filtered = (pulse_filtered << 8) / state.channel_move_minimum;
 	}
 	pulse_filtered = pulse_filtered >> 1;
+	rotation->brake = false;
+	if (state.brake_enabled) {
+		if (pulse_filtered <= state.zone_brake) rotation->brake = true;
+	}
 	pulse_filtered = main_ApplyZoneNeutral(pulse_filtered);
 	if (pulse_filtered > SPEED_MAX) pulse_filtered = SPEED_MAX;
 	uint8_t result = (uint8_t)pulse_filtered;
@@ -698,7 +709,7 @@ void main_RecalculateSpeed(DCROTATION_t *rotation, uint16_t pulse_length)
 	if (testbit(configuration_jumpers, JUMPER_P2_SPEED_CURVE_bp)) {
 		main_ApplySpeedCurve(&result);
 	}
-	(*rotation).speed = result;
+	rotation->speed = result;
 }
 
 uint32_t main_ApplyZoneNeutral(uint32_t pulse)
@@ -726,6 +737,19 @@ void main_ReadConfigurationJumper(void)
 	if (!(READ_PIN(CONFIG_P3))) setbit(configuration_jumpers, JUMPER_P3_SERVICE_MODE_bp);
 }
 
+void main_ReadSetup(void)
+{
+	#ifdef ADCONVERSION_8_BIT_PRECISION
+	state.battery_cut = eeprom_read_byte(&EEMEM_battery_cut);
+	#else
+	state.battery_cut = eeprom_read_word(&EEMEM_battery_cut);
+	#endif
+	state.battery_divider = eeprom_read_byte(&EEMEM_battery_divider);
+	state.custom_filter_length = eeprom_read_byte(&EEMEM_custom_filter_length);
+	state.speed_limit = eeprom_read_byte(&EEMEM_speed_limit);
+	state.brake_enabled = eeprom_read_byte(&EEMEM_brake_enabled);
+}
+
 void main_SaveSetup(void)
 {
 	terminal.change_to_write = false;
@@ -737,6 +761,7 @@ void main_SaveSetup(void)
 	eeprom_write_byte(&EEMEM_battery_divider, state.battery_divider);
 	eeprom_write_byte(&EEMEM_custom_filter_length, state.custom_filter_length);
 	eeprom_write_byte(&EEMEM_speed_limit, state.speed_limit);
+	eeprom_write_byte(&EEMEM_brake_enabled, state.brake_enabled);
 }
 
 void main_SaveCalibration(void)

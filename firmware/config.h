@@ -16,24 +16,24 @@
 
 
 // State LED
-#define CONFIG_LED				D,3
+#define CONFIG_LED		D,3
 
 
 // I/O port for motor bridge
-#define CONFIG_DIR_L			B,1
-#define CONFIG_PULS_L			C,2
-#define CONFIG_DIR_R			B,2
-#define CONFIG_PULS_R			C,1
+#define CONFIG_DIR_L		B,1
+#define CONFIG_PULS_L		C,2
+#define CONFIG_DIR_R		B,2
+#define CONFIG_PULS_R		C,1
 
 
 // Configuration pinhead (P1 - P3)
-#define CONFIG_P1				B,0
-#define CONFIG_P2				D,7
-#define CONFIG_P3				D,6
+#define CONFIG_P1		B,0
+#define CONFIG_P2		D,7
+#define CONFIG_P3		D,6
 
 
 // Channel signal (CH1)
-#define CONFIG_CH1				D,5
+#define CONFIG_CH1		D,5
 
 
 // Battery voltage measure

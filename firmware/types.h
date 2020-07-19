@@ -19,6 +19,7 @@
 typedef struct dc_rotation {
 	uint8_t speed;
 	uint8_t dir;
+	bool brake;
 } DCROTATION_t; 
 
 typedef struct dc_controller {
@@ -48,6 +49,8 @@ typedef struct dc_controller {
 	int recovery;
 	uint8_t speed_max;
 	uint8_t speed_limit;
+	uint8_t brake_enabled;
+	uint8_t zone_brake;
 } DCCON_t;
 
 
