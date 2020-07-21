@@ -26,6 +26,7 @@
 #include "terminal.h"
 #include "terminal_commands.h"
 #include "adconversion.h"
+#include "bridge.h"
 
 
 // resource:
@@ -35,6 +36,11 @@
 // ADC - checks battery voltage
 // UART - serial communication (9600) for advanced configuration
 
+/*
+	Program Memory Usage 	:	8706 bytes   26,6 % Full
+	Data Memory Usage 	:	685 bytes   33,4 % Full
+	EEPROM Memory Usage 	:	507 bytes   49,5 % Full
+*/
 
 
 #define VERSION_MAJOR				"1"
@@ -79,17 +85,12 @@ uint8_t EEMEM EEMEM_brake_enabled = 0x00;
 
  
 uint8_t configuration_jumpers = 0x00;
-bool motor_running_right = true;
-bool motor_running_left = true;
 LPFu16_t filter_speed;
 LPFu16_t filter_adc;
 
 uint8_t calibration_progres = 0;
 
 DCCON_t state = {.errors = 0,
-		 .rotation.speed = 0,
-		 .rotation.dir = MOTOR_DIRECTION_RIGHT,
-		 .rotation.brake = false,
 		 .channel_neutral = 0x0000,
 		 .channel_maximum = 0x0000,
 		 .channel_minimum = 0xffff,
@@ -130,19 +131,11 @@ void main_SetLedOn(void);
 void main_ShowStatus(uint8_t status, uint8_t count);
 void main_ReadSetup(void);
 void main_CalculateChannelConstants(void);
-void main_SetMotorOnLeft(uint8_t *speed);
-void main_SetMotorOnRight(uint8_t *speed);
-void main_SetMotorOff(void);
-void main_SetMotorBrake(void);
-void main_SetMotorToChangeDirection(uint8_t *speed);
-void main_SetMotorSpeedPWM(DCROTATION_t *rotation);
-bool main_IsMotorDirectionRight(uint8_t *direction);
-bool main_IsMotorDirectionLeft(uint8_t *direction);
 void main_ApplyReduceSpeed(uint8_t *speed);
 uint32_t main_ApplyZoneNeutral(uint32_t pulse);
 void main_ApplySpeedFilter(uint32_t *speed, uint16_t new_speed);
 void main_ApplySpeedCurve(uint8_t *speed);
-void main_RecalculateSpeed(DCROTATION_t *rotation, uint16_t pulse_length);
+void main_RecalculateSpeed(BRIDGE_t *rotation, uint16_t pulse_length);
 void main_ReadConfigurationJumper(void);
 void main_SaveSetup(void);
 void main_SaveCalibration(void);
@@ -154,6 +147,7 @@ void main_ClearCalibration(void);
 int main(void) 
 {
 	main_InitIO();
+	bridge_Init(&state.rotation);
 	main_InitExpCurve();
 	main_ReadConfigurationJumper();
 	adc_Init(glue2(ADCONVERSION_MUX_ADC,CONFIG_BAT_PORTC_PIN));
@@ -318,13 +312,16 @@ READY_TO_RUN:
 		if (terminal.change_to_write) main_SaveSetup();
 		if (terminal.input_is_full) terminal_DropInputBuffer(&terminal);
 		if (terminal_FindNewLine(&terminal, &command_length)) terminal_ParseCommand(&terminal, command_length);
+		// reduce power consumption
+		main_ApplyReduceSpeed(&(state.rotation.speed));
 		// set rotation
-		if (!testbit(configuration_jumpers, JUMPER_P3_SERVICE_MODE_bp)) main_SetMotorSpeedPWM(&state.rotation);
+		if (!testbit(configuration_jumpers, JUMPER_P3_SERVICE_MODE_bp)) bridge_UpdatePWM(&state.rotation, main_ReadMotorTimer());
 		// check state
 		if (delays_Check(&timer_adc)) setbit(state.errors, ERROR_ADC_TIMEOUT_bp);
 		main_CheckBattery();
 	}
 }
+
 
 #if (defined(__AVR_ATmega8__))
 ISR(USART_RXC_vect)
@@ -351,15 +348,6 @@ void main_InitIO(void)
 	SET_PIN_PULLUP(CONFIG_P2);
 	SET_PIN_PULLUP(CONFIG_P3);
 	
-	SET_PIN_LEVEL_LOW(CONFIG_DIR_L);
-	SET_PIN_AS_OUT(CONFIG_DIR_L);
-	SET_PIN_LEVEL_LOW(CONFIG_DIR_R);
-	SET_PIN_AS_OUT(CONFIG_DIR_R);
-	SET_PIN_LEVEL_LOW(CONFIG_PULS_L);
-	SET_PIN_AS_OUT(CONFIG_PULS_L);
-	SET_PIN_LEVEL_LOW(CONFIG_PULS_R);
-	SET_PIN_AS_OUT(CONFIG_PULS_R);
-
 	SET_PIN_PULLUP(CONFIG_CH1);
 }
 
@@ -467,7 +455,7 @@ bool main_CheckChannelInput(uint16_t *val, bool verify)
 	uint8_t channel_level = READ_PIN(CONFIG_CH1);
 	if (state.channel_level_prev != channel_level) {
 		if (channel_level == CHANNEL_LEVEL_ACTIVE) {
-		    main_StartPulseTimer();
+			main_StartPulseTimer();
 		} else {
 			main_StopPulseTimer();
 			if (main_IsPulseTimerOverload()) {
@@ -562,99 +550,6 @@ void main_ShowStatus(uint8_t status, uint8_t count)
 	}
 }
 
-void main_SetMotorOnLeft(uint8_t *speed)
-{
-	if (motor_running_right) {
-		main_SetMotorToChangeDirection(speed);
-		return;
-	}
-	SET_PIN_LEVEL_LOW(CONFIG_DIR_R);
-	SET_PIN_LEVEL_LOW(CONFIG_PULS_R);
-	motor_running_left = true;
-	SET_PIN_LEVEL_HIGH(CONFIG_DIR_L);
-	SET_PIN_LEVEL_HIGH(CONFIG_PULS_L);
-}
-
-void main_SetMotorOnRight(uint8_t *speed)
-{
-	if (motor_running_left) {
-		main_SetMotorToChangeDirection(speed);
-		return;
-	}
-	SET_PIN_LEVEL_LOW(CONFIG_DIR_L);
-	SET_PIN_LEVEL_LOW(CONFIG_PULS_L);
-	motor_running_right = true;
-	SET_PIN_LEVEL_HIGH(CONFIG_DIR_R);
-	SET_PIN_LEVEL_HIGH(CONFIG_PULS_R);
-}
-
-void main_SetMotorToChangeDirection(uint8_t *speed)
-{
-	main_SetMotorOff();
-	motor_running_left = false;
-	motor_running_right = false;
-	*speed = 0;
-}
-
-void main_SetMotorOff(void)
-{
-	SET_PIN_LEVEL_LOW(CONFIG_PULS_L);
-	SET_PIN_LEVEL_LOW(CONFIG_PULS_R);
-	SET_PIN_LEVEL_LOW(CONFIG_DIR_L); 
-	SET_PIN_LEVEL_LOW(CONFIG_DIR_R);
-}
-
-void main_SetMotorBrake(void)
-{
-	SET_PIN_LEVEL_LOW(CONFIG_DIR_L);
-	SET_PIN_LEVEL_LOW(CONFIG_DIR_R);
-	SET_PIN_LEVEL_HIGH(CONFIG_PULS_L);
-	SET_PIN_LEVEL_HIGH(CONFIG_PULS_R);
-}
-
-void main_SetMotorSpeedPWM(DCROTATION_t *rotation)
-{
-	// prevent quick change of direction
- 	if (main_IsMotorDirectionRight(&(rotation->dir)) && motor_running_left) {
-		main_SetMotorToChangeDirection(&(rotation->speed));
-		return;
-	}
-	if (main_IsMotorDirectionLeft(&(rotation->dir)) && motor_running_right) {
-		main_SetMotorToChangeDirection(&(rotation->speed));
-		return;
-	}
-	// reduce power consumption
-	main_ApplyReduceSpeed(&(rotation->speed));
-	// set bridge I/O
-	if (rotation->speed > 0) {
-		if (main_ReadMotorTimer() <= rotation->speed) {
-			if (main_IsMotorDirectionRight(&(rotation->dir))) {
-				main_SetMotorOnRight(&(rotation->speed));
-			} else {
- 				main_SetMotorOnLeft(&(rotation->speed));
-			}
-		} else {
-			main_SetMotorOff();
-		}
-	} else if (rotation->brake) {
-		main_SetMotorBrake();
-	} else {
-		main_SetMotorOff();
-	}
-}
-
-bool main_IsMotorDirectionRight(uint8_t *direction)
-{
-	if ((*direction && 0x01) == MOTOR_DIRECTION_RIGHT) return true;
-	return false;
-}
-
-bool main_IsMotorDirectionLeft(uint8_t *direction)
-{
-	if ((*direction && 0x01) == MOTOR_DIRECTION_LEFT) return true;
-	return false;
-}
-
 void main_ApplyReduceSpeed(uint8_t *speed)
 {
 	if (*speed >= state.speed_max) *speed = state.speed_max;
@@ -681,7 +576,7 @@ void main_CalculateChannelConstants(void)
 	state.zone_brake = (state.zone_neutral * CHANNEL_PULSE_ZONE_BRAKE) / CHANNEL_PULSE_ZONE_NEUTRAL; 
 }
 
-void main_RecalculateSpeed(DCROTATION_t *rotation, uint16_t pulse_length)
+void main_RecalculateSpeed(BRIDGE_t *rotation, uint16_t pulse_length)
 {
 	uint32_t pulse_filtered;
 	// apply filter, 
@@ -689,11 +584,11 @@ void main_RecalculateSpeed(DCROTATION_t *rotation, uint16_t pulse_length)
 	main_ApplySpeedFilter(&pulse_filtered, (pulse_length << 1));
 	// convert pulse length to motor direction and speed
 	if (pulse_filtered > state.channel_neutral_x2) {
-		rotation->dir = MOTOR_DIRECTION_RIGHT;
+		rotation->dir = BRIDGE_DIRECTION_RIGHT;
 		pulse_filtered = pulse_filtered - state.channel_neutral_x2;
 		pulse_filtered = (pulse_filtered << 8) / state.channel_move_maximum;
 	} else {
-		rotation->dir = MOTOR_DIRECTION_LEFT;
+		rotation->dir = BRIDGE_DIRECTION_LEFT;
 		pulse_filtered = state.channel_neutral_x2 - pulse_filtered;
 		pulse_filtered = (pulse_filtered << 8) / state.channel_move_minimum;
 	}
@@ -770,7 +665,6 @@ void main_SaveCalibration(void)
 	eeprom_write_word(&EEMEM_channel_neutral, state.channel_neutral);
 	eeprom_write_word(&EEMEM_channel_maximum, state.channel_maximum);
 	eeprom_write_byte(&EEMEM_channel_saved, 0xff);
-	
 }
 
 void main_ReadCalibration(void)

@@ -37,8 +37,6 @@
 
 #define SPEED_MAX				(0xff)
 #define SPEED_FILTER_DEFAULT			(2)
-#define MOTOR_DIRECTION_RIGHT			(1)
-#define MOTOR_DIRECTION_LEFT			(0)
 
 // Sanwa VG6DR
 #define CHANNEL_PULSE_NEUTRAL			(365)

@@ -15,12 +15,8 @@
 #define TYPES_H_
 
 #include "adconversion.h"
+#include "bridge.h"
 
-typedef struct dc_rotation {
-	uint8_t speed;
-	uint8_t dir;
-	bool brake;
-} DCROTATION_t; 
 
 typedef struct dc_controller {
 	const char *device_info;
@@ -29,7 +25,7 @@ typedef struct dc_controller {
 	uint16_t channel_last;
 	uint16_t channel_prev;
 	uint8_t channel_level_prev;
-	DCROTATION_t rotation;
+	BRIDGE_t rotation;
 #ifdef ADCONVERSION_8_BIT_PRECISION
 	uint8_t battery_voltage;
 	uint8_t battery_cut;
