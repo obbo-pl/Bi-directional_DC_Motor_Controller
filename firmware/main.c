@@ -27,6 +27,7 @@
 #include "terminal_commands.h"
 #include "adconversion.h"
 #include "bridge.h"
+#include "led.h"
 
 
 // resource:
@@ -36,11 +37,6 @@
 // ADC - checks battery voltage
 // UART - serial communication (9600) for advanced configuration
 
-/*
-	Program Memory Usage 	:	8706 bytes   26,6 % Full
-	Data Memory Usage 	:	685 bytes   33,4 % Full
-	EEPROM Memory Usage 	:	507 bytes   49,5 % Full
-*/
 
 
 #define VERSION_MAJOR				"1"
@@ -83,7 +79,8 @@ uint8_t EEMEM EEMEM_channel_saved = 0x00;
 
 uint8_t EEMEM EEMEM_brake_enabled = 0x00;
 
- 
+uint8_t error_recovery = 0b00010000;
+
 uint8_t configuration_jumpers = 0x00;
 LPFu16_t filter_speed;
 LPFu16_t filter_adc;
@@ -91,6 +88,7 @@ LPFu16_t filter_adc;
 uint8_t calibration_progres = 0;
 
 DCCON_t state = {.errors = 0,
+		 .errors_prev = 0,
 		 .channel_neutral = 0x0000,
 		 .channel_maximum = 0x0000,
 		 .channel_minimum = 0xffff,
@@ -103,6 +101,11 @@ DCCON_t state = {.errors = 0,
 DELAY_t timer_adc;
 DELAY_t timer_signal_ms;
 DELAY_t timer_recalc_ms;
+#if (defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+DELAY_t timer_led_status_ms;
+#endif
+
+LED_t led_status;
 
 CircularBuffer_t cbuffer;
 DCTERMINAL_t terminal;
@@ -167,6 +170,10 @@ int main(void)
 	delays_Init(&timer_recalc_ms, RECALCULATE_INTERVAL_MS);
 	delays_Pause(&timer_recalc_ms);
 	delays_Init(&timer_adc, ADC_CONVERSION_TIMEOUT_MS);
+#if (defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+	delays_Init(&timer_led_status_ms, LED_UPDATE_INTERVAL_MS);
+	delays_Pause(&timer_led_status_ms);
+#endif	
 	lpfilter_Set(&filter_adc, ADC_FILTER);
 #ifdef ADCONVERSION_8_BIT_PRECISION	
 	lpfilter_Fill(&filter_adc, 0x00ff);
@@ -291,17 +298,27 @@ READY_TO_RUN:
 	lpfilter_Fill(&filter_speed, state.channel_neutral_x2);
 	delays_Reset(&timer_signal_ms);
 	delays_Reset(&timer_recalc_ms);
+	
+#if (defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+	delays_Reset(&timer_led_status_ms);
+	led_Init(&led_status, PORT_REG_O(CONFIG_LED));
+	led_SetLed(&led_status, true, false);
+#else
 	main_SetLedOn();
+#endif
+
 	sei();
 	uint8_t command_length;
 	while (1) {
+		// error recovery 
+		state.errors &= ~(error_recovery);
 		// check signal
 		main_CheckChannelInput(&(state.channel_value), true);
 		// fail-safe
 		if (delays_Check(&timer_signal_ms) || (state.recovery > 0)) {
  			setbit(state.errors, ERROR_CHANNEL_LOST_bp);
 			state.channel_value = state.channel_neutral;
-		}
+		} 
 		// convert pulse length to rotation
 		if (delays_Check(&timer_recalc_ms)) {
 			main_RecalculateSpeed(&state.rotation, state.channel_value);
@@ -319,6 +336,28 @@ READY_TO_RUN:
 		// check state
 		if (delays_Check(&timer_adc)) setbit(state.errors, ERROR_ADC_TIMEOUT_bp);
 		main_CheckBattery();
+#if (defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+		// error state signaling
+		if (delays_Check(&timer_led_status_ms)) {
+			led_Update(&led_status);
+			delays_Reset(&timer_led_status_ms);
+		}
+		if (state.errors != state.errors_prev) {
+			if (state.errors) {
+				led_SetLed(&led_status, true, true);
+				if (testbit(state.errors, ERROR_BATTERY_LOW_bp)) {
+					led_SetTimers(&led_status, 50, 45);
+				} else if (testbit(state.errors, ERROR_CHANNEL_LOST_bp)) {
+					led_SetTimers(&led_status, 10, 5);
+				} else {
+					led_SetTimers(&led_status, 50, 5);
+				}
+			} else {
+				led_SetLed(&led_status, true, false);
+			}
+			state.errors_prev = state.errors;
+		}
+#endif
 	}
 }
 
@@ -337,6 +376,9 @@ ISR(TIMER0_OVF_vect)
 	delays_Update(&timer_signal_ms, TIMER_COMMON_OVF_MS);
 	delays_Update(&timer_recalc_ms, TIMER_COMMON_OVF_MS);
 	delays_Update(&timer_adc, TIMER_COMMON_OVF_MS);
+#if (defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+	delays_Update(&timer_led_status_ms, TIMER_COMMON_OVF_MS);
+#endif
 }
 
 void main_InitIO(void)

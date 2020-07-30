@@ -21,6 +21,7 @@
 typedef struct dc_controller {
 	const char *device_info;
 	volatile uint8_t errors;
+	uint8_t errors_prev;
 	uint16_t channel_value;
 	uint16_t channel_last;
 	uint16_t channel_prev;
