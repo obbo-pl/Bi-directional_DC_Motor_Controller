@@ -100,7 +100,6 @@ DCCON_t state = {.errors = 0,
 
 DELAY_t timer_adc;
 DELAY_t timer_signal_ms;
-DELAY_t timer_recalc_ms;
 #if (defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
 DELAY_t timer_led_status_ms;
 #endif
@@ -168,8 +167,6 @@ int main(void)
 
 	delays_Init(&timer_signal_ms, SIGNAL_LOST_TIMEOUT_MS);
 	delays_Pause(&timer_signal_ms);
-	delays_Init(&timer_recalc_ms, RECALCULATE_INTERVAL_MS);
-	delays_Pause(&timer_recalc_ms);
 	delays_Init(&timer_adc, ADC_CONVERSION_TIMEOUT_MS);
 #if (defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
 	delays_Init(&timer_led_status_ms, LED_UPDATE_INTERVAL_MS);
@@ -298,7 +295,6 @@ READY_TO_RUN:
 	main_CalculateChannelConstants();	
 	lpfilter_Fill(&filter_speed, state.channel_neutral_x2);
 	delays_Reset(&timer_signal_ms);
-	delays_Reset(&timer_recalc_ms);
 	
 #if (defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
 	delays_Reset(&timer_led_status_ms);
@@ -310,20 +306,22 @@ READY_TO_RUN:
 
 	sei();
 	uint8_t command_length;
+	bool new_channel_value = false;
 	while (1) {
 		// error recovery 
 		state.errors &= ~(error_recovery);
 		// check signal
-		main_CheckChannelInput(&(state.channel_value), true);
+		new_channel_value = main_CheckChannelInput(&(state.channel_value), true);
 		// fail-safe
 		if (delays_Check(&timer_signal_ms) || (state.recovery > 0)) {
  			setbit(state.errors, ERROR_CHANNEL_LOST_bp);
 			state.channel_value = state.channel_neutral;
+			new_channel_value = true;
 		} 
 		// convert pulse length to rotation
-		if (delays_Check(&timer_recalc_ms)) {  
+		if (new_channel_value) {  
 			main_RecalculateSpeed(&state.rotation, state.channel_value);
-			delays_Reset(&timer_recalc_ms);
+			new_channel_value = false;
 		}
 		// check terminal buffer
 		terminal_SendOutBuffer(&cbuffer);
@@ -375,7 +373,6 @@ ISR(USART_RX_vect)
 ISR(TIMER0_OVF_vect)
 {
 	delays_Update(&timer_signal_ms, TIMER_COMMON_OVF_MS);
-	delays_Update(&timer_recalc_ms, TIMER_COMMON_OVF_MS);
 	delays_Update(&timer_adc, TIMER_COMMON_OVF_MS);
 #if (defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
 	delays_Update(&timer_led_status_ms, TIMER_COMMON_OVF_MS);
