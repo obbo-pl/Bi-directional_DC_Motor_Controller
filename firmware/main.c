@@ -69,12 +69,12 @@ uint8_t EEMEM EEMEM_battery_cut = 0xaa;
 uint16_t EEMEM EEMEM_battery_cut = 0x01aa;
 #endif
 uint8_t EEMEM EEMEM_battery_divider = 0x12; 
-uint8_t EEMEM EEMEM_custom_filter_length = 0x04;
+uint8_t EEMEM EEMEM_custom_filter_length = SPEED_FILTER_DEFAULT;
 uint8_t EEMEM EEMEM_speed_limit = 0x80;
 
-uint16_t EEMEM EEMEM_channel_minimum = 250;
-uint16_t EEMEM EEMEM_channel_neutral = 375;
-uint16_t EEMEM EEMEM_channel_maximum = 500;
+uint16_t EEMEM EEMEM_channel_maximum = CHANNEL_PULSE_MAXIMUM;
+uint16_t EEMEM EEMEM_channel_neutral = CHANNEL_PULSE_NEUTRAL;
+uint16_t EEMEM EEMEM_channel_minimum = CHANNEL_PULSE_MINIMUM;
 uint8_t EEMEM EEMEM_channel_saved = 0x00;
 
 uint8_t EEMEM EEMEM_brake_enabled = 0x00;
@@ -139,6 +139,7 @@ uint32_t main_ApplyZoneNeutral(uint32_t pulse);
 void main_ApplySpeedFilter(uint32_t *speed, uint16_t new_speed);
 void main_ApplySpeedCurve(uint8_t *speed);
 void main_RecalculateSpeed(BRIDGE_t *rotation, uint16_t pulse_length);
+void main_SetBrake(uint32_t pulse, BRIDGE_t *rotation);
 void main_ReadConfigurationJumper(void);
 void main_SaveSetup(void);
 void main_SaveCalibration(void);
@@ -320,7 +321,7 @@ READY_TO_RUN:
 			state.channel_value = state.channel_neutral;
 		} 
 		// convert pulse length to rotation
-		if (delays_Check(&timer_recalc_ms)) {
+		if (delays_Check(&timer_recalc_ms)) {  
 			main_RecalculateSpeed(&state.rotation, state.channel_value);
 			delays_Reset(&timer_recalc_ms);
 		}
@@ -492,11 +493,11 @@ bool main_CheckChannelInput(uint16_t *val, bool verify)
 	// check the channel pulse length, it should be between 1ms and 2ms 
 	// timer prescaler is set to 4us per tick
 	// then should count from 250 to 500 tick per pulse
-	// returns "true" and updates "value" when a new pulse occurs
+	// returns "true" and updates "val" when a new pulse occurs
 	bool changed = false;
-	uint8_t channel_level = READ_PIN(CONFIG_CH1);
-	if (state.channel_level_prev != channel_level) {
-		if (channel_level == CHANNEL_LEVEL_ACTIVE) {
+	uint8_t signal_level = READ_PIN(CONFIG_CH1);
+	if (state.signal_level_prev != signal_level) {
+		if (signal_level == CHANNEL_LEVEL_ACTIVE) {
 			main_StartPulseTimer();
 		} else {
 			main_StopPulseTimer();
@@ -505,7 +506,7 @@ bool main_CheckChannelInput(uint16_t *val, bool verify)
 				state.channel_last = 0xffff;
 				main_UpdateRecovery(RECOVERY_DELAY_PL);
    			} else {
-				state.channel_last = main_ReadPulseTimer();
+				state.channel_last = main_ReadPulseTimer() << 2;
 				if (main_VerifyChannelValue(&(state.channel_last)) || !verify) {
 					*val = state.channel_last;
 					main_UpdateRecovery(-1);
@@ -517,7 +518,7 @@ bool main_CheckChannelInput(uint16_t *val, bool verify)
 				}
 			}
 		}
-		state.channel_level_prev = channel_level;
+		state.signal_level_prev = signal_level;
 	}
 	return changed;
 }
@@ -597,25 +598,14 @@ void main_ApplyReduceSpeed(uint8_t *speed)
 	if (*speed >= state.speed_max) *speed = state.speed_max;
 }
 
-void main_ApplySpeedFilter(uint32_t *speed, uint16_t new_speed)
-{
-	*speed = 0x0000ffff & lpfilter_Filter(&filter_speed, new_speed);
-}
-
-void main_ApplySpeedCurve(uint8_t *speed)
-{
-	*speed = curve[*speed];
-}
-
 void main_CalculateChannelConstants(void)
 {
 	state.channel_move_maximum = state.channel_maximum - state.channel_neutral - CHANNEL_PULSE_ZONE_NEUTRAL - CHANNEL_PULSE_ZONE_EXTREMUM;
 	state.channel_move_minimum = state.channel_neutral - state.channel_minimum - CHANNEL_PULSE_ZONE_NEUTRAL - CHANNEL_PULSE_ZONE_EXTREMUM;
 	state.channel_neutral_x2 = state.channel_neutral << 1;
 	state.zone_neutral = CHANNEL_PULSE_ZONE_NEUTRAL;
-	state.zone_neutral = (state.zone_neutral * 0x1fe) / (state.channel_maximum - state.channel_minimum);
-	state.zone_neutral = (state.zone_neutral * (state.channel_maximum - state.channel_minimum)) / (state.channel_move_minimum + state.channel_move_maximum);
-	state.zone_brake = (state.zone_neutral * CHANNEL_PULSE_ZONE_BRAKE) / CHANNEL_PULSE_ZONE_NEUTRAL; 
+	state.zone_brake = CHANNEL_PULSE_ZONE_BRAKE; 
+	if (state.zone_brake > state.zone_neutral) state.zone_brake = state.zone_neutral;
 }
 
 void main_RecalculateSpeed(BRIDGE_t *rotation, uint16_t pulse_length)
@@ -625,21 +615,21 @@ void main_RecalculateSpeed(BRIDGE_t *rotation, uint16_t pulse_length)
 	// for greater accuracy, filter works on double value of pulse length
 	main_ApplySpeedFilter(&pulse_filtered, (pulse_length << 1));
 	// convert pulse length to motor direction and speed
+	rotation->brake = false;
 	if (pulse_filtered > state.channel_neutral_x2) {
 		rotation->dir = BRIDGE_DIRECTION_RIGHT;
 		pulse_filtered = pulse_filtered - state.channel_neutral_x2;
+		main_SetBrake(pulse_filtered, rotation);
+		pulse_filtered = main_ApplyZoneNeutral(pulse_filtered);
 		pulse_filtered = (pulse_filtered << 8) / state.channel_move_maximum;
 	} else {
 		rotation->dir = BRIDGE_DIRECTION_LEFT;
 		pulse_filtered = state.channel_neutral_x2 - pulse_filtered;
+		main_SetBrake(pulse_filtered, rotation);
+		pulse_filtered = main_ApplyZoneNeutral(pulse_filtered);
 		pulse_filtered = (pulse_filtered << 8) / state.channel_move_minimum;
 	}
 	pulse_filtered = pulse_filtered >> 1;
-	rotation->brake = false;
-	if (state.brake_enabled) {
-		if (pulse_filtered <= state.zone_brake) rotation->brake = true;
-	}
-	pulse_filtered = main_ApplyZoneNeutral(pulse_filtered);
 	if (pulse_filtered > SPEED_MAX) pulse_filtered = SPEED_MAX;
 	uint8_t result = (uint8_t)pulse_filtered;
 	// apply curve
@@ -649,6 +639,13 @@ void main_RecalculateSpeed(BRIDGE_t *rotation, uint16_t pulse_length)
 	rotation->speed = result;
 }
 
+void main_SetBrake(uint32_t pulse, BRIDGE_t *rotation) 
+{
+	if (state.brake_enabled) {
+		if (pulse <= state.zone_brake) rotation->brake = true;
+	}
+}
+
 uint32_t main_ApplyZoneNeutral(uint32_t pulse)
 {
 	if (pulse > state.zone_neutral) {
@@ -656,6 +653,16 @@ uint32_t main_ApplyZoneNeutral(uint32_t pulse)
 	} else {
 		return 0;
 	}
+}
+
+void main_ApplySpeedFilter(uint32_t *speed, uint16_t new_speed)
+{
+	*speed = 0x0000ffff & lpfilter_Filter(&filter_speed, new_speed);
+}
+
+void main_ApplySpeedCurve(uint8_t *speed)
+{
+	*speed = curve[*speed];
 }
 
 void main_InitExpCurve(void)

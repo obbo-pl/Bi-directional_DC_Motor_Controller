@@ -25,7 +25,7 @@ typedef struct dc_controller {
 	uint16_t channel_value;
 	uint16_t channel_last;
 	uint16_t channel_prev;
-	uint8_t channel_level_prev;
+	uint8_t signal_level_prev;
 	BRIDGE_t rotation;
 #ifdef ADCONVERSION_8_BIT_PRECISION
 	uint8_t battery_voltage;
@@ -35,7 +35,7 @@ typedef struct dc_controller {
 	uint16_t battery_cut;
 #endif
 	uint8_t battery_divider;
-	uint8_t zone_neutral;
+	uint16_t zone_neutral;
 	uint16_t channel_neutral;
 	uint16_t channel_maximum;
 	uint16_t channel_minimum;
@@ -47,7 +47,7 @@ typedef struct dc_controller {
 	uint8_t speed_max;
 	uint8_t speed_limit;
 	uint8_t brake_enabled;
-	uint8_t zone_brake;
+	uint16_t zone_brake;
 } DCCON_t;
 
 

@@ -57,9 +57,9 @@ bool silent = false;
 const char EEMEM eeprom_terminal_message_001[] = "Battery voltage [A/D, volt]: ";
 const char EEMEM eeprom_terminal_message_002[] = "Battery voltage divider: ";
 const char EEMEM eeprom_terminal_message_003[] = "Errors: ";
-const char EEMEM eeprom_terminal_message_004[] = "Current channel value [tick]: ";
-const char EEMEM eeprom_terminal_message_005[] = "Last pulse length [tick]: ";
-const char EEMEM eeprom_terminal_message_006[] = "Calibrated pulse length [tick]: ";
+const char EEMEM eeprom_terminal_message_004[] = "Current pulse length [us]: ";
+const char EEMEM eeprom_terminal_message_005[] = "Last pulse length [us]: ";
+const char EEMEM eeprom_terminal_message_006[] = "Calibrated pulse length [us]: ";
 const char EEMEM eeprom_terminal_message_007[] = "Battery voltage cut level [A/D, volt]: ";
 
 
