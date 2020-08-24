@@ -22,7 +22,6 @@ void command_ShowErrors(DCTERMINAL_t *terminal);
 void command_ClearErrors(DCTERMINAL_t *terminal);
 void command_SetModeSilent(DCTERMINAL_t *terminal);
 void command_ShowChannelValue(DCTERMINAL_t *terminal);
-void command_ShowChannelLast(DCTERMINAL_t *terminal);
 void command_ShowChannelRange(DCTERMINAL_t *terminal);
 void command_BatteryVoltageValue(DCTERMINAL_t *terminal);
 void command_BatteryVoltageDivider(DCTERMINAL_t *terminal);
@@ -30,10 +29,19 @@ void command_BatteryVoltageCut(DCTERMINAL_t *terminal);
 void command_MotorBrakeEnabled(DCTERMINAL_t *terminal);
 void command_BatterySpeedLimit(DCTERMINAL_t *terminal);
 void command_SpeedFilterCustom(DCTERMINAL_t *terminal);
+#if (defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+void command_ShowChannelLast(DCTERMINAL_t *terminal);
+#endif
 
-#define TERMINAL_BASE_COMMANDS_COUNT		13
 
-#define TERMINAL_COMMANDS_COUNT			(TERMINAL_BASE_COMMANDS_COUNT)
+#define TERMINAL_BASE_COMMANDS_COUNT		12
+#if (defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+#define TERMINAL_ATMEGA328_COMMANDS_COUNT	1
+#else
+#define TERMINAL_ATMEGA328_COMMANDS_COUNT	0
+#endif
+
+#define TERMINAL_COMMANDS_COUNT			(TERMINAL_BASE_COMMANDS_COUNT + TERMINAL_ATMEGA328_COMMANDS_COUNT)
 
 TERMINAL_COMMAND_t cabell_commands[TERMINAL_COMMANDS_COUNT] = {
 	{ .pattern = "@VER", .callback = command_SystemVersion,},
@@ -41,7 +49,6 @@ TERMINAL_COMMAND_t cabell_commands[TERMINAL_COMMANDS_COUNT] = {
 	{ .pattern = "@ERC", .callback = command_ClearErrors,},
 	{ .pattern = "@MDS", .callback = command_SetModeSilent,},
 	{ .pattern = "@CHV", .callback = command_ShowChannelValue,},
-	{ .pattern = "@CHL", .callback = command_ShowChannelLast,},
 	{ .pattern = "@CHR", .callback = command_ShowChannelRange,},
 	{ .pattern = "@BVV", .callback = command_BatteryVoltageValue,},
 	{ .pattern = "@BVD", .callback = command_BatteryVoltageDivider,},
@@ -49,6 +56,9 @@ TERMINAL_COMMAND_t cabell_commands[TERMINAL_COMMANDS_COUNT] = {
 	{ .pattern = "@BSL", .callback = command_BatterySpeedLimit,},
 	{ .pattern = "@MBE", .callback = command_MotorBrakeEnabled,},
 	{ .pattern = "@SFC", .callback = command_SpeedFilterCustom,},
+#if (defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+	{ .pattern = "@CHL", .callback = command_ShowChannelLast,},
+#endif
 };
 
 DCCON_t *dc_state;
@@ -58,7 +68,7 @@ const char EEMEM eeprom_terminal_message_001[] = "Battery voltage [A/D, volt]: "
 const char EEMEM eeprom_terminal_message_002[] = "Battery voltage divider: ";
 const char EEMEM eeprom_terminal_message_003[] = "Errors: ";
 const char EEMEM eeprom_terminal_message_004[] = "Current pulse length [us]: ";
-const char EEMEM eeprom_terminal_message_005[] = "Last pulse length [us]: ";
+const char EEMEM eeprom_terminal_message_005[] = "Custom speed filter length (2-10): ";
 const char EEMEM eeprom_terminal_message_006[] = "Calibrated pulse length [us]: ";
 const char EEMEM eeprom_terminal_message_007[] = "Battery voltage cut level [A/D, volt]: ";
 
@@ -181,15 +191,6 @@ void command_ShowChannelValue(DCTERMINAL_t *terminal)
 	terminal_SendNL(terminal->output_buffer, false);
 }
 
-void command_ShowChannelLast(DCTERMINAL_t *terminal)
-{
-	if (!silent) cbuffer_AppendEEString(terminal->output_buffer, eeprom_terminal_message_005);
-	char buffer [6];
-	itoa(dc_state->channel_last, buffer, 10);
-	cbuffer_AppendString(terminal->output_buffer, buffer);
-	terminal_SendNL(terminal->output_buffer, false);
-}
-
 void command_ShowChannelRange(DCTERMINAL_t *terminal)
 {
 	if (!silent) cbuffer_AppendEEString(terminal->output_buffer, eeprom_terminal_message_006);
@@ -262,11 +263,22 @@ void command_SpeedFilterCustom(DCTERMINAL_t *terminal)
 			terminal_SendBadArgument(terminal->output_buffer);
 		}
 	}
-	if (!silent) cbuffer_AppendString(terminal->output_buffer, "Custom speed filter length (2-10): ");
+	if (!silent) cbuffer_AppendEEString(terminal->output_buffer, eeprom_terminal_message_005);
 	char buffer [4];
 	itoa(dc_state->custom_filter_length, buffer, 10);
 	cbuffer_AppendString(terminal->output_buffer, buffer);
 	terminal_SendNL(terminal->output_buffer, false);
 }
+
+#if (defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+void command_ShowChannelLast(DCTERMINAL_t *terminal)
+{
+	if (!silent) cbuffer_AppendString(terminal->output_buffer, "Last pulse length [us]: ");
+	char buffer [6];
+	itoa(dc_state->channel_last, buffer, 10);
+	cbuffer_AppendString(terminal->output_buffer, buffer);
+	terminal_SendNL(terminal->output_buffer, false);
+}
+#endif
 
 

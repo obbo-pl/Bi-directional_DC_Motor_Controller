@@ -117,7 +117,7 @@ void main_StopPulseTimer(void);
 uint16_t main_ReadPulseTimer(void);
 bool main_IsPulseTimerOverload(void);
 void main_InitMotorTimer(void);
-void main_StartMotorTimer(void);
+void main_StartMotorTimer(uint8_t length);
 uint8_t main_ReadMotorTimer(void);
 void main_InitCommonTimer(void);
 void main_InitExpCurve(void);
@@ -290,8 +290,10 @@ READY_TO_RUN:
 	} else {
 		lpfilter_Set(&filter_speed, SPEED_FILTER_DEFAULT); 
 	}
+	// start rotation
 	state.rotation.speed = 0;
-	main_StartMotorTimer();
+	if (!testbit(configuration_jumpers, JUMPER_P3_SERVICE_MODE_bp)) main_StartMotorTimer(100);
+	
 	main_CalculateChannelConstants();	
 	lpfilter_Fill(&filter_speed, state.channel_neutral_x2);
 	delays_Reset(&timer_signal_ms);
@@ -303,7 +305,6 @@ READY_TO_RUN:
 #else
 	main_SetLedOn();
 #endif
-
 	sei();
 	uint8_t command_length;
 	bool new_channel_value = false;
@@ -321,6 +322,7 @@ READY_TO_RUN:
 		// convert pulse length to rotation
 		if (new_channel_value) {  
 			main_RecalculateSpeed(&state.rotation, state.channel_value);
+			main_ApplyReduceSpeed(&state.rotation.speed);
 			new_channel_value = false;
 		}
 		// check terminal buffer
@@ -328,10 +330,6 @@ READY_TO_RUN:
 		if (terminal.change_to_write) main_SaveSetup();
 		if (terminal.input_is_full) terminal_DropInputBuffer(&terminal);
 		if (terminal_FindNewLine(&terminal, &command_length)) terminal_ParseCommand(&terminal, command_length);
-		// reduce power consumption
-		main_ApplyReduceSpeed(&(state.rotation.speed));
-		// set rotation
-		if (!testbit(configuration_jumpers, JUMPER_P3_SERVICE_MODE_bp)) bridge_UpdatePWM(&state.rotation, main_ReadMotorTimer());
 		// check state
 		if (delays_Check(&timer_adc)) setbit(state.errors, ERROR_ADC_TIMEOUT_bp);
 		main_CheckBattery();
@@ -360,7 +358,6 @@ READY_TO_RUN:
 	}
 }
 
-
 #if (defined(__AVR_ATmega8__))
 ISR(USART_RXC_vect)
 #elif (defined(__AVR_ATmega88A__) || defined(__AVR_ATmega88PA__) || defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
@@ -378,6 +375,22 @@ ISR(TIMER0_OVF_vect)
 	delays_Update(&timer_led_status_ms, TIMER_COMMON_OVF_MS);
 #endif
 }
+
+#if (defined(__AVR_ATmega8__))
+ISR(TIMER2_COMP_vect)
+{
+	// stop timer
+	TCCR2 &= ~((1 << CS22) | (1 << CS21) | (1 << CS20));
+	bridge_InterruptHandler(state.rotation, main_StartMotorTimer);
+}
+#elif (defined(__AVR_ATmega88A__) || defined(__AVR_ATmega88PA__) || defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
+ISR(TIMER2_COMPA_vect)
+{
+	// stop timer
+	TCCR2B &= ~((1 << CS22) | (1 << CS21) | (1 << CS20));
+	bridge_InterruptHandler(state.rotation, main_StartMotorTimer);
+}
+#endif
 
 void main_InitIO(void)
 {
@@ -449,23 +462,25 @@ bool main_IsPulseTimerOverload(void)
 
 void main_InitMotorTimer(void)
 {
-	// Timer2 (8-bit)
 #if (defined(__AVR_ATmega8__))
-	TCCR2 &= ~((1 << CS22) | (1 << CS21) | (1 << CS20));
-	TIFR |= (1 << TOV2) | (1 << OCF2);
+	TCCR2 = (1 << WGM21);
+	TCCR2 = (1 << FOC2);
+	TIMSK = (1 << OCIE2);
 #elif (defined(__AVR_ATmega88A__) || defined(__AVR_ATmega88PA__) || defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
-	TCCR2B &= ~((1 << CS22) | (1 << CS21) | (1 << CS20));
-	TIFR2 |= (1 << TOV2);
+	TCCR2A = (1 << WGM21);
+	TCCR2B = (1 << FOC2A);
+	TIMSK2 = (1 << OCIE2A);
 #endif
 }
 
-void main_StartMotorTimer(void)
+void main_StartMotorTimer(uint8_t length)
 {
- 	TCNT2 = 0;
 #if (defined(__AVR_ATmega8__))
- 	TCCR2 |= (1 << CS22);
+	OCR2 = length;
+	TCCR2 |= (1 << CS22);
 #elif (defined(__AVR_ATmega88A__) || defined(__AVR_ATmega88PA__) || defined(__AVR_ATmega328__) || defined(__AVR_ATmega328P__))
- 	TCCR2B |= (1 << CS22);
+	OCR2A = length;
+	TCCR2B |= (1 << CS22);
 #endif
 }
 
@@ -490,6 +505,7 @@ bool main_CheckChannelInput(uint16_t *val, bool verify)
 	// check the channel pulse length, it should be between 1ms and 2ms 
 	// timer prescaler is set to 4us per tick
 	// then should count from 250 to 500 tick per pulse
+	// the result (val) is converted into microseconds
 	// returns "true" and updates "val" when a new pulse occurs
 	bool changed = false;
 	uint8_t signal_level = READ_PIN(CONFIG_CH1);

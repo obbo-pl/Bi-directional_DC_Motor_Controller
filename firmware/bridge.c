@@ -19,10 +19,18 @@ void bridge_SetMotorOnLeft(void);
 void bridge_SetMotorOnRight(void);
 void bridge_SetMotorOff(void);
 void bridge_SetMotorBrake(void);
-void bridge_SetMotorToChangeDirection(uint8_t *speed);
 
+#define BRIDGE_PULSE_MIN_LENGTH		3
+#define BRIDGE_PULSE_MAX_LENGTH		(0xff - BRIDGE_PULSE_MIN_LENGTH)
+
+enum {
+	BRIDGE_PULSE_BASE,
+	BRIDGE_PULSE_PAUSE
+};
 
 uint8_t motor_running_direction = BRIDGE_DIRECTION_UNKNOWN;
+uint8_t phase = BRIDGE_PULSE_BASE;
+uint8_t pause;
 
 
 void bridge_Init(BRIDGE_t *rotation)
@@ -63,12 +71,6 @@ void bridge_SetMotorOnRight(void)
 	SET_PIN_LEVEL_HIGH(CONFIG_PULS_R);
 }
 
-void bridge_SetMotorToChangeDirection(uint8_t *speed)
-{
-	bridge_SetMotorOff();
-	*speed = 0;
-}
-
 void bridge_SetMotorOff(void)
 {
 	SET_PIN_LEVEL_LOW(CONFIG_PULS_L);
@@ -86,37 +88,41 @@ void bridge_SetMotorBrake(void)
 	SET_PIN_LEVEL_HIGH(CONFIG_PULS_R);
 }
 
-void bridge_UpdatePWM(BRIDGE_t *rotation, uint8_t timer)
+void bridge_InterruptHandler(BRIDGE_t rotation, void (*start_timer)(uint8_t))
 {
 	// prevent quick change of direction
-	if (rotation->dir == BRIDGE_DIRECTION_RIGHT) {
-		if ((motor_running_direction == BRIDGE_DIRECTION_LEFT) && (motor_running_direction == BRIDGE_DIRECTION_UNKNOWN)) {
-			bridge_SetMotorToChangeDirection(&(rotation->speed));
-			return;
-		}
+	if(motor_running_direction != BRIDGE_DIRECTION_STOP) {
+		if (motor_running_direction != rotation.dir) rotation.speed = 0;
 	}
-	if (rotation->dir == BRIDGE_DIRECTION_LEFT) {
-		if ((motor_running_direction == BRIDGE_DIRECTION_RIGHT) && (motor_running_direction == BRIDGE_DIRECTION_UNKNOWN)) {
-			bridge_SetMotorToChangeDirection(&(rotation->speed));
-			return;
-		}
-	}
-	// set bridge I/O
-	if (rotation->speed > 0) {
-		if (timer <= rotation->speed) {
-			if (rotation->dir == BRIDGE_DIRECTION_RIGHT) {
-				bridge_SetMotorOnRight();
-			} else if (rotation->dir == BRIDGE_DIRECTION_LEFT) {
-				bridge_SetMotorOnLeft();
+	switch(phase) {
+		case BRIDGE_PULSE_BASE:
+			if (rotation.speed <= BRIDGE_PULSE_MIN_LENGTH) {
+				if ((rotation.speed == 0) && rotation.brake && (motor_running_direction == BRIDGE_DIRECTION_STOP)) bridge_SetMotorBrake();
+				else bridge_SetMotorOff();
+				start_timer(0xff);
+			} else if (rotation.speed >= BRIDGE_PULSE_MAX_LENGTH) {
+				if (rotation.dir == BRIDGE_DIRECTION_RIGHT) {
+					bridge_SetMotorOnRight();
+				} else if (rotation.dir == BRIDGE_DIRECTION_LEFT) {
+					bridge_SetMotorOnLeft();
+				}
+				start_timer(0xff);
+			} else {
+				if (rotation.dir == BRIDGE_DIRECTION_RIGHT) {
+					bridge_SetMotorOnRight();
+				} else if (rotation.dir == BRIDGE_DIRECTION_LEFT) {
+					bridge_SetMotorOnLeft();
+				}
+				phase = BRIDGE_PULSE_PAUSE;
+				pause = 0xff - rotation.speed;
+				start_timer(rotation.speed);
 			}
-		} else {
-			bridge_SetMotorOff();
-		}
-	} else if (rotation->brake && (motor_running_direction == BRIDGE_DIRECTION_STOP)) {
-		bridge_SetMotorBrake();
-	} else {
-		bridge_SetMotorOff();
+			break;
+		case BRIDGE_PULSE_PAUSE:
+ 			bridge_SetMotorOff();
+			phase = BRIDGE_PULSE_BASE;
+ 			start_timer(pause);
+			break;
 	}
 }
-
 

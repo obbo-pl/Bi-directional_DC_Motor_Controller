@@ -35,7 +35,7 @@ typedef struct {
 
 
 void bridge_Init(BRIDGE_t *rotation);
-void bridge_UpdatePWM(BRIDGE_t *rotation, uint8_t timer);
+void bridge_InterruptHandler(BRIDGE_t rotation, void (*start_timer)(uint8_t));
 
 
 
