@@ -319,6 +319,9 @@ READY_TO_RUN:
 			state.channel_value = state.channel_neutral;
 			new_channel_value = true;
 		} 
+		// closer loop when seeking a signal
+		if ((timer_signal_ms.counter < (SIGNAL_LOST_TIMEOUT_MS - SIGNAL_PULSE_DISTANCE_MIN_MS)) 
+		     && (timer_signal_ms.counter > (SIGNAL_LOST_TIMEOUT_MS - SIGNAL_PULSE_DISTANCE_MAX_MS))) continue;
 		// convert pulse length to rotation
 		if (new_channel_value) {  
 			main_RecalculateSpeed(&state.rotation, state.channel_value);
