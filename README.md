@@ -15,6 +15,7 @@ RC Bi-directional DC Motor Speed Controller
 - speed regulation smoothing filter,
 - Fail-safe, engine shutdown in the event of signal loss,
 - 3 quick configuration jumpers,
+- brake,
 - parameter configuration via serial port (9600bps).
 
 ### Hardware & Firmware.
